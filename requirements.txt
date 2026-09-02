@@ -1,0 +1,35 @@
+# Framework web
+fastapi
+uvicorn[standard]
+
+# Dados e indicadores técnicos
+pandas
+numpy
+pandas-ta
+
+# HTTP assíncrono (integrações externas)
+httpx
+
+# Agendamento de jobs
+apscheduler
+
+# Persistência
+sqlalchemy
+psycopg2-binary
+alembic
+
+# Cache
+redis
+
+# Validação e schemas
+pydantic
+pydantic-settings
+
+# Autenticação e segurança
+python-jose[cryptography]
+passlib[bcrypt]
+
+# Testes
+pytest
+pytest-asyncio
+pytest-cov

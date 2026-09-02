@@ -1,0 +1,8 @@
+[project]
+name = "insight-flow-backend"
+version = "0.1.0"
+description = "Sistema de Análise de Ativos do Mercado Financeiro — backend"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
