@@ -1,0 +1,12 @@
+# quem revisa o que. se o PR mexer no caminho, o github puxa o owner
+*                    @Vinicius11s
+
+# backend
+/app/                @gustavomf1  @Vinicius11s
+/src/                @gustavomf1  @Vinicius11s
+
+# pipelines
+/.github/            @Vinicius11s
+
+# docs
+*.md                 @Vinicius11s
