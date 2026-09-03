@@ -5,4 +5,10 @@ description = "Sistema de Análise de Ativos do Mercado Financeiro — backend"
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
+pythonpath = ["."]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = ["insightflow-github-setup"]
