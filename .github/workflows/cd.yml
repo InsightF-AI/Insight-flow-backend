@@ -1,0 +1,39 @@
+# CD: staging sobe sozinho, producao espera aprovacao no Environment
+name: CD
+
+on:
+  # so quando entra na main; feature nao vai pra ambiente
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy-staging:
+    name: Deploy - Staging
+    runs-on: ubuntu-latest
+    # staging sem required reviewers = deploy automatico
+    environment:
+      name: staging
+      url: https://staging.insightflow.example
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      # por enquanto so simula o deploy
+      - name: Publicar em Staging
+        run: echo "Publicando build em STAGING (deploy automatico)..."
+
+  deploy-production:
+    name: Deploy - Producao
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    # aprovacao fica no Environment production (required reviewers)
+    environment:
+      name: production
+      url: https://insightflow.example
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Publicar em Producao
+        run: echo "Publicando build em PRODUCAO (apos aprovacao manual)..."
