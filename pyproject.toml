@@ -5,7 +5,7 @@ description = "Sistema de Análise de Ativos do Mercado Financeiro — backend"
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.ruff]
