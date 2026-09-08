@@ -28,6 +28,7 @@ pydantic-settings
 # Autenticação e segurança
 python-jose[cryptography]
 passlib[bcrypt]
+bcrypt<4.1  # passlib 1.7.4 (ultima versao, sem manutencao) quebra com bcrypt >=4.1
 
 # Testes
 pytest
