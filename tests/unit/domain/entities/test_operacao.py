@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import uuid4
 
@@ -12,10 +12,10 @@ def test_valor_total_multiplica_quantidade_pelo_preco_unitario():
         usuario_id=uuid4(),
         ativo_id=uuid4(),
         tipo=TipoOperacao.COMPRA,
-        quantidade=Decimal("100"),
+        quantidade=Decimal(100),
         preco_unitario=Decimal("38.50"),
         data=date(2026, 9, 8),
-        criado_em=datetime(2026, 9, 8, 18, 0, 0),
+        criado_em=datetime(2026, 9, 8, 18, 0, 0, tzinfo=UTC),
     )
 
     assert operacao.valor_total() == Decimal("3850.00")

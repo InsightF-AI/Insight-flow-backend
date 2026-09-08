@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.domain.entities.analise_ia import AnaliseIA
@@ -13,7 +13,7 @@ def test_cria_analise_ia_com_dados_de_rastreabilidade_do_provedor():
         modelo="claude-sonnet-5",
         prompt_versao="v1",
         contexto_hash="abc123",
-        gerado_em=datetime(2026, 9, 8, 18, 0, 0),
+        gerado_em=datetime(2026, 9, 8, 18, 0, 0, tzinfo=UTC),
     )
 
     assert analise.provedor == "claude"
