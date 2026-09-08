@@ -31,6 +31,23 @@ jobs:
   test:
     name: Testes (pytest)
     runs-on: ubuntu-latest
+    # postgres real pros testes de integracao dos repositorios (tests/integration)
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: insightflow
+          POSTGRES_PASSWORD: insightflow
+          POSTGRES_DB: insightflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U insightflow"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgresql://insightflow:insightflow@localhost:5432/insightflow_test
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
