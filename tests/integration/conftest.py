@@ -5,7 +5,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.base import Base
-from app.db.models.usuario import UsuarioModel  # noqa: F401  garante o registro da tabela
+from app.db.models.ativo import AtivoModel  # noqa: F401
+from app.db.models.usuario import UsuarioModel  # noqa: F401
+from app.db.models.watchlist import WatchlistModel  # noqa: F401
 
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",

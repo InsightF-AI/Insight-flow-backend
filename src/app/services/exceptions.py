@@ -4,3 +4,11 @@ class EmailJaCadastradoError(Exception):
 
 class CredenciaisInvalidasError(Exception):
     pass
+
+
+class AtivoJaNaWatchlistError(Exception):
+    pass
+
+
+class ItemWatchlistNaoEncontradoError(Exception):
+    pass

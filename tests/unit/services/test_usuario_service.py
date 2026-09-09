@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 import pytest
 
 from app.services.exceptions import CredenciaisInvalidasError, EmailJaCadastradoError
@@ -50,3 +52,19 @@ def test_autenticar_com_email_inexistente_lanca_erro():
 
     with pytest.raises(CredenciaisInvalidasError):
         service.autenticar(email="naoexiste@example.com", senha="qualquer")
+
+
+def test_buscar_por_id_retorna_usuario_cadastrado():
+    service = _service()
+    usuario = service.cadastrar(nome="Ana", email="ana@example.com", senha="segredo123")
+
+    encontrado = service.buscar_por_id(usuario.id)
+
+    assert encontrado is not None
+    assert encontrado.email == "ana@example.com"
+
+
+def test_buscar_por_id_inexistente_retorna_none():
+    service = _service()
+
+    assert service.buscar_por_id(uuid4()) is None
