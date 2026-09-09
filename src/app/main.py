@@ -1,6 +1,11 @@
 from fastapi import FastAPI
 
+from app.api.v1.controllers.auth import router as auth_router
+from app.api.v1.controllers.usuarios import router as usuarios_router
+
 app = FastAPI(title="InsightFlow AI - Backend")
+app.include_router(usuarios_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
 
 
 @app.get("/health")
