@@ -24,6 +24,7 @@ redis
 # Validação e schemas
 pydantic
 pydantic-settings
+email-validator
 
 # Autenticação e segurança
 python-jose[cryptography]
