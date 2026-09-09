@@ -35,8 +35,20 @@ def catalogo_brapi() -> list:
 
 
 @pytest.fixture
-def dados_mercado_service(catalogo_brapi: list) -> FakeDadosMercadoService:
-    return FakeDadosMercadoService(catalogo_brapi)
+def cotacoes_brapi() -> dict:
+    return {}
+
+
+@pytest.fixture
+def historicos_brapi() -> dict:
+    return {}
+
+
+@pytest.fixture
+def dados_mercado_service(
+    catalogo_brapi: list, cotacoes_brapi: dict, historicos_brapi: dict
+) -> FakeDadosMercadoService:
+    return FakeDadosMercadoService(catalogo_brapi, cotacoes_brapi, historicos_brapi)
 
 
 @pytest.fixture
