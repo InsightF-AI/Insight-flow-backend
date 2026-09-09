@@ -17,5 +17,4 @@ target-version = "py312"
 exclude = ["insightflow-github-setup"]
 
 [tool.ruff.lint.flake8-bugbear]
-# Depends(...) como valor padrão é o padrão idiomático do FastAPI (não é um bug de mutable default)
 extend-immutable-calls = ["fastapi.Depends"]

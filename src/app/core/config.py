@@ -8,7 +8,6 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql://insightflow:insightflow@localhost:5432/insightflow"
 
-    # valor padrão só serve para desenvolvimento local; em produção deve vir de JWT_SECRET_KEY
     jwt_secret_key: str = "dev-secret-key-nao-usar-em-producao"
     jwt_expiration_minutes: int = 1440
 
