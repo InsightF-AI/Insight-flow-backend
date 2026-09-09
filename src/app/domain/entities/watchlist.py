@@ -22,3 +22,9 @@ class Watchlist:
             adicionado_em=adicionado_em,
             notificar=True,
         )
+
+    def desabilitar_notificacao(self) -> None:
+        self.notificar = False
+
+    def habilitar_notificacao(self) -> None:
+        self.notificar = True

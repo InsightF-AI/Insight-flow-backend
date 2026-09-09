@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from app.domain.entities.usuario import Usuario
 from app.repositories.interfaces.usuario_repository import UsuarioRepository
@@ -31,3 +31,6 @@ class UsuarioService:
         if usuario is None or not usuario.autenticar(senha):
             raise CredenciaisInvalidasError(email)
         return usuario
+
+    def buscar_por_id(self, id: UUID) -> Usuario | None:
+        return self._repository.buscar_por_id(id)
