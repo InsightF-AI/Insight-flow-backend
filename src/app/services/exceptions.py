@@ -12,3 +12,7 @@ class AtivoJaNaWatchlistError(Exception):
 
 class ItemWatchlistNaoEncontradoError(Exception):
     pass
+
+
+class AtivoNaoEncontradoError(Exception):
+    pass
