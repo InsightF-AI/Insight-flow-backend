@@ -9,10 +9,6 @@ from app.services.watchlist_service import ItemWatchlist
 
 class AdicionarWatchlistRequest(BaseModel):
     ticker: str = Field(min_length=1, max_length=20)
-    nome: str = Field(min_length=1, max_length=255)
-    tipo: TipoAtivo
-    moeda: str = Field(min_length=1, max_length=10)
-    setor: str | None = None
 
 
 class AtualizarNotificacaoRequest(BaseModel):

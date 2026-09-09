@@ -9,7 +9,12 @@ from app.api.v1.schemas.watchlist import (
     ItemWatchlistResponse,
 )
 from app.domain.entities.usuario import Usuario
-from app.services.exceptions import AtivoJaNaWatchlistError, ItemWatchlistNaoEncontradoError
+from app.integrations.brapi.client import BrapiIndisponivelError
+from app.services.exceptions import (
+    AtivoJaNaWatchlistError,
+    AtivoNaoEncontradoError,
+    ItemWatchlistNaoEncontradoError,
+)
 from app.services.watchlist_service import WatchlistService
 
 router = APIRouter(prefix="/watchlist", tags=["watchlist"])
@@ -22,16 +27,15 @@ def adicionar(
     service: WatchlistService = Depends(get_watchlist_service),
 ) -> ItemWatchlistResponse:
     try:
-        item = service.adicionar(
-            usuario_id=usuario.id,
-            ticker=dados.ticker,
-            nome=dados.nome,
-            tipo=dados.tipo,
-            moeda=dados.moeda,
-            setor=dados.setor,
-        )
+        item = service.adicionar(usuario_id=usuario.id, ticker=dados.ticker)
     except AtivoJaNaWatchlistError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "Ativo ja esta na watchlist") from exc
+    except AtivoNaoEncontradoError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ativo nao encontrado") from exc
+    except BrapiIndisponivelError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Fonte de dados de mercado indisponivel"
+        ) from exc
 
     return ItemWatchlistResponse.de(item)
 

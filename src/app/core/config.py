@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "dev-secret-key-nao-usar-em-producao"
     jwt_expiration_minutes: int = 1440
 
+    brapi_base_url: str = "https://brapi.dev"
+    brapi_api_key: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

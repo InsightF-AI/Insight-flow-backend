@@ -1,6 +1,7 @@
 from collections.abc import Generator
 from functools import lru_cache
 
+import httpx
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session, sessionmaker
@@ -9,12 +10,14 @@ from app.core.config import Settings, get_settings
 from app.core.security import TokenInvalidoError, decodificar_token
 from app.db.session import criar_session_factory
 from app.domain.entities.usuario import Usuario
+from app.integrations.brapi.client import BrapiClient
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.usuario_repository import UsuarioRepository
 from app.repositories.interfaces.watchlist_repository import WatchlistRepository
 from app.repositories.sqlalchemy.ativo_repository import SqlAlchemyAtivoRepository
 from app.repositories.sqlalchemy.usuario_repository import SqlAlchemyUsuarioRepository
 from app.repositories.sqlalchemy.watchlist_repository import SqlAlchemyWatchlistRepository
+from app.services.dados_mercado_service import DadosMercadoService
 from app.services.usuario_service import UsuarioService
 from app.services.watchlist_service import WatchlistService
 
@@ -58,11 +61,27 @@ def get_watchlist_repository(
     return SqlAlchemyWatchlistRepository(session)
 
 
+@lru_cache
+def _brapi_http_client(base_url: str) -> httpx.Client:
+    return httpx.Client(base_url=base_url, timeout=10.0)
+
+
+def get_brapi_client(settings: Settings = Depends(get_settings)) -> BrapiClient:
+    return BrapiClient(_brapi_http_client(settings.brapi_base_url), settings.brapi_api_key or None)
+
+
+def get_dados_mercado_service(
+    brapi_client: BrapiClient = Depends(get_brapi_client),
+) -> DadosMercadoService:
+    return DadosMercadoService(brapi_client)
+
+
 def get_watchlist_service(
     watchlist_repository: WatchlistRepository = Depends(get_watchlist_repository),
     ativo_repository: AtivoRepository = Depends(get_ativo_repository),
+    dados_mercado_service: DadosMercadoService = Depends(get_dados_mercado_service),
 ) -> WatchlistService:
-    return WatchlistService(watchlist_repository, ativo_repository)
+    return WatchlistService(watchlist_repository, ativo_repository, dados_mercado_service)
 
 
 def get_usuario_atual(
