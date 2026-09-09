@@ -17,6 +17,7 @@ from app.repositories.interfaces.watchlist_repository import WatchlistRepository
 from app.repositories.sqlalchemy.ativo_repository import SqlAlchemyAtivoRepository
 from app.repositories.sqlalchemy.usuario_repository import SqlAlchemyUsuarioRepository
 from app.repositories.sqlalchemy.watchlist_repository import SqlAlchemyWatchlistRepository
+from app.services.ativo_service import AtivoService
 from app.services.dados_mercado_service import DadosMercadoService
 from app.services.usuario_service import UsuarioService
 from app.services.watchlist_service import WatchlistService
@@ -74,6 +75,13 @@ def get_dados_mercado_service(
     brapi_client: BrapiClient = Depends(get_brapi_client),
 ) -> DadosMercadoService:
     return DadosMercadoService(brapi_client)
+
+
+def get_ativo_service(
+    ativo_repository: AtivoRepository = Depends(get_ativo_repository),
+    dados_mercado_service: DadosMercadoService = Depends(get_dados_mercado_service),
+) -> AtivoService:
+    return AtivoService(ativo_repository, dados_mercado_service)
 
 
 def get_watchlist_service(

@@ -1,10 +1,16 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.deps import get_dados_mercado_service, get_usuario_atual
+from app.api.deps import get_ativo_service, get_dados_mercado_service, get_usuario_atual
 from app.api.v1.schemas.ativo import AtivoEncontradoResponse
+from app.api.v1.schemas.cotacao import CotacaoAtualResponse, PontoHistoricoResponse
 from app.domain.entities.usuario import Usuario
-from app.integrations.brapi.client import BrapiIndisponivelError
+from app.domain.enums.periodo_historico import PeriodoHistorico
+from app.integrations.brapi.client import BrapiIndisponivelError, TickerNaoEncontradoError
+from app.services.ativo_service import AtivoService
 from app.services.dados_mercado_service import DadosMercadoService
+from app.services.exceptions import AtivoNaoEncontradoError
 
 router = APIRouter(prefix="/ativos", tags=["ativos"])
 
@@ -23,3 +29,48 @@ def buscar(
         ) from exc
 
     return [AtivoEncontradoResponse.de(ativo) for ativo in encontrados]
+
+
+@router.get("/{ativo_id}/cotacao", response_model=CotacaoAtualResponse)
+def cotacao_atual(
+    ativo_id: UUID,
+    usuario: Usuario = Depends(get_usuario_atual),
+    service: AtivoService = Depends(get_ativo_service),
+) -> CotacaoAtualResponse:
+    try:
+        cotacao = service.cotacao_atual(ativo_id)
+    except AtivoNaoEncontradoError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ativo nao encontrado") from exc
+    except TickerNaoEncontradoError as exc:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "Cotacao nao encontrada para o ativo"
+        ) from exc
+    except BrapiIndisponivelError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Fonte de dados de mercado indisponivel"
+        ) from exc
+
+    return CotacaoAtualResponse.de(cotacao)
+
+
+@router.get("/{ativo_id}/historico", response_model=list[PontoHistoricoResponse])
+def historico(
+    ativo_id: UUID,
+    periodo: PeriodoHistorico = PeriodoHistorico.UM_MES,
+    usuario: Usuario = Depends(get_usuario_atual),
+    service: AtivoService = Depends(get_ativo_service),
+) -> list[PontoHistoricoResponse]:
+    try:
+        pontos = service.historico(ativo_id, periodo)
+    except AtivoNaoEncontradoError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ativo nao encontrado") from exc
+    except TickerNaoEncontradoError as exc:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "Historico nao encontrado para o ativo"
+        ) from exc
+    except BrapiIndisponivelError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Fonte de dados de mercado indisponivel"
+        ) from exc
+
+    return [PontoHistoricoResponse.de(ponto) for ponto in pontos]

@@ -44,6 +44,8 @@ docker compose up
 
 Sobe API (`http://localhost:8000`), Postgres e Redis, aplicando as migrations do Alembic automaticamente. Alterações em `src/` e `alembic/` recarregam a API sem rebuild.
 
+Sem `BRAPI_API_KEY` configurada no `.env`, a brapi.dev só retorna cotação e histórico para os tickers de sandbox: `PETR4`, `MGLU3`, `VALE3`, `ITUB4`. A busca de ativos (`/ativos/buscar`) funciona sem chave para qualquer ticker.
+
 ## Stack
 
 Python 3.11+, FastAPI, SQLAlchemy, PostgreSQL, Redis, Pydantic, APScheduler, pandas-ta.
