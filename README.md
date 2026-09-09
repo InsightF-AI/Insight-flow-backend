@@ -36,6 +36,14 @@ tests/
 └── fixtures/
 ```
 
+## Como rodar
+
+```
+docker compose up
+```
+
+Sobe API (`http://localhost:8000`), Postgres e Redis, aplicando as migrations do Alembic automaticamente. Alterações em `src/` e `alembic/` recarregam a API sem rebuild.
+
 ## Stack
 
 Python 3.11+, FastAPI, SQLAlchemy, PostgreSQL, Redis, Pydantic, APScheduler, pandas-ta.
