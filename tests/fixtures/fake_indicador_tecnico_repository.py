@@ -11,8 +11,12 @@ class FakeIndicadorTecnicoRepository(IndicadorTecnicoRepository):
         self._indicadores: dict[tuple, IndicadorTecnico] = {}
 
     def salvar(self, indicador: IndicadorTecnico) -> None:
-        chave = (indicador.ativo_id, indicador.tipo, tuple(indicador.parametros.values()))
+        chave = (indicador.ativo_id, indicador.tipo, tuple(sorted(indicador.parametros.items())))
         self._indicadores[chave] = indicador
+
+    def salvar_muitas(self, indicadores: list[IndicadorTecnico]) -> None:
+        for indicador in indicadores:
+            self.salvar(indicador)
 
     def listar_por_ativo(self, ativo_id: UUID) -> list[IndicadorTecnico]:
         return [i for i in self._indicadores.values() if i.ativo_id == ativo_id]

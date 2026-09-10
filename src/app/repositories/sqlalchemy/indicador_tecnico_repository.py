@@ -13,7 +13,7 @@ from app.repositories.interfaces.indicador_tecnico_repository import IndicadorTe
 
 
 def _chave_de(tipo: TipoIndicador, parametros: dict) -> str:
-    partes = "_".join(str(valor) for valor in parametros.values())
+    partes = "_".join(f"{chave}={valor}" for chave, valor in sorted(parametros.items()))
     return f"{tipo.value}_{partes}"
 
 
@@ -33,6 +33,40 @@ class SqlAlchemyIndicadorTecnicoRepository(IndicadorTecnicoRepository):
             valor=indicador.valor,
             valores_auxiliares=indicador.valores_auxiliares,
         )
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["ativo_id", "chave"],
+            set_={
+                "parametros": stmt.excluded.parametros,
+                "data_calculo": stmt.excluded.data_calculo,
+                "valor": stmt.excluded.valor,
+                "valores_auxiliares": stmt.excluded.valores_auxiliares,
+            },
+        )
+        self._session.execute(stmt)
+        self._session.commit()
+
+    def salvar_muitas(self, indicadores: list[IndicadorTecnico]) -> None:
+        if not indicadores:
+            return
+
+        por_chave: dict[tuple, IndicadorTecnico] = {
+            (indicador.ativo_id, _chave_de(indicador.tipo, indicador.parametros)): indicador
+            for indicador in indicadores
+        }
+        valores = [
+            {
+                "id": indicador.id,
+                "ativo_id": indicador.ativo_id,
+                "tipo": indicador.tipo.value,
+                "parametros": indicador.parametros,
+                "chave": _chave_de(indicador.tipo, indicador.parametros),
+                "data_calculo": indicador.data_calculo,
+                "valor": indicador.valor,
+                "valores_auxiliares": indicador.valores_auxiliares,
+            }
+            for indicador in por_chave.values()
+        ]
+        stmt = insert(IndicadorTecnicoModel).values(valores)
         stmt = stmt.on_conflict_do_update(
             index_elements=["ativo_id", "chave"],
             set_={

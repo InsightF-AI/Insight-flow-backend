@@ -104,3 +104,65 @@ def test_listar_por_ativo_sem_indicadores_retorna_lista_vazia(session):
     repo = SqlAlchemyIndicadorTecnicoRepository(session)
 
     assert repo.listar_por_ativo(ativo.id) == []
+
+
+def test_salvar_com_parametros_em_ordem_diferente_nao_duplica(session):
+    ativo = _novo_ativo(session)
+    repo = SqlAlchemyIndicadorTecnicoRepository(session)
+    indicador_a = IndicadorTecnico(
+        id=uuid4(),
+        ativo_id=ativo.id,
+        tipo=TipoIndicador.BOLLINGER,
+        parametros={"periodo": 20, "desvios": 2},
+        data_calculo=datetime(2024, 1, 1, tzinfo=UTC),
+        valor=Decimal("10.0"),
+        valores_auxiliares=None,
+    )
+    indicador_b = IndicadorTecnico(
+        id=uuid4(),
+        ativo_id=ativo.id,
+        tipo=TipoIndicador.BOLLINGER,
+        parametros={"desvios": 2, "periodo": 20},
+        data_calculo=datetime(2024, 1, 2, tzinfo=UTC),
+        valor=Decimal("11.0"),
+        valores_auxiliares=None,
+    )
+
+    repo.salvar(indicador_a)
+    repo.salvar(indicador_b)
+
+    encontrados = repo.listar_por_ativo(ativo.id)
+    assert len(encontrados) == 1
+    assert encontrados[0].valor == Decimal("11.0")
+
+
+def test_salvar_muitas_persiste_e_atualiza_em_conflito(session):
+    ativo = _novo_ativo(session)
+    repo = SqlAlchemyIndicadorTecnicoRepository(session)
+    indicadores = [
+        _indicador(ativo.id, tipo=TipoIndicador.SMA, periodo=20, valor="10.5"),
+        _indicador(ativo.id, tipo=TipoIndicador.SMA, periodo=50, valor="9.0"),
+        _indicador(ativo.id, tipo=TipoIndicador.RSI, periodo=14, valor="55.0"),
+    ]
+
+    repo.salvar_muitas(indicadores)
+
+    encontrados = repo.listar_por_ativo(ativo.id)
+    assert len(encontrados) == 3
+
+    atualizados = [
+        _indicador(ativo.id, tipo=TipoIndicador.SMA, periodo=20, valor="20.5"),
+        _indicador(ativo.id, tipo=TipoIndicador.SMA, periodo=50, valor="19.0"),
+        _indicador(ativo.id, tipo=TipoIndicador.RSI, periodo=14, valor="65.0"),
+    ]
+
+    repo.salvar_muitas(atualizados)
+
+    encontrados = repo.listar_por_ativo(ativo.id)
+    assert len(encontrados) == 3
+    valores = {(i.tipo, i.parametros.get("periodo")): i.valor for i in encontrados}
+    assert valores == {
+        (TipoIndicador.SMA, 20): Decimal("20.5"),
+        (TipoIndicador.SMA, 50): Decimal("19.0"),
+        (TipoIndicador.RSI, 14): Decimal("65.0"),
+    }

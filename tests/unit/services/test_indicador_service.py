@@ -204,3 +204,15 @@ def test_calcular_todos_com_ativo_inexistente_lanca_erro():
 
     with pytest.raises(AtivoNaoEncontradoError):
         service.calcular_todos(uuid4())
+
+
+def test_calcular_todos_com_ativo_sem_cotacoes_retorna_lista_vazia():
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_PETR4)
+    service = IndicadorService(
+        ativo_repository, FakeCotacaoRepository(), FakeIndicadorTecnicoRepository()
+    )
+
+    calculados = service.calcular_todos(_ATIVO_ID)
+
+    assert calculados == []

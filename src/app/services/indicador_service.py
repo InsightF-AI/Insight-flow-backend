@@ -149,8 +149,7 @@ class IndicadorService:
             self.calcular_volume_relativo(cotacoes),
         ]
         calculados = [c for c in candidatos if c is not None]
-        for indicador in calculados:
-            self._indicador_repository.salvar(indicador)
+        self._indicador_repository.salvar_muitas(calculados)
         return calculados
 
     def _buscar_ativo(self, ativo_id: UUID) -> Ativo:
