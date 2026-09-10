@@ -6,18 +6,22 @@ from app.api.deps import (
     get_ativo_service,
     get_dados_mercado_service,
     get_indicador_service,
+    get_sinal_service,
     get_usuario_atual,
 )
 from app.api.v1.schemas.ativo import AtivoEncontradoResponse
 from app.api.v1.schemas.cotacao import CotacaoAtualResponse, PontoHistoricoResponse
 from app.api.v1.schemas.indicador import IndicadorTecnicoResponse
+from app.api.v1.schemas.sinal import ResultadoBacktestResponse, SinalResponse
 from app.domain.entities.usuario import Usuario
 from app.domain.enums.periodo_historico import PeriodoHistorico
+from app.domain.regras_sinal_padrao import buscar_regra_por_id
 from app.integrations.brapi.client import BrapiIndisponivelError, TickerNaoEncontradoError
 from app.services.ativo_service import AtivoService
 from app.services.dados_mercado_service import DadosMercadoService
-from app.services.exceptions import AtivoNaoEncontradoError
+from app.services.exceptions import AtivoNaoEncontradoError, RegraNaoEncontradaError
 from app.services.indicador_service import IndicadorService
+from app.services.sinal_service import SinalService
 
 router = APIRouter(prefix="/ativos", tags=["ativos"])
 
@@ -95,3 +99,34 @@ def indicadores(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Ativo nao encontrado") from exc
 
     return [IndicadorTecnicoResponse.de(indicador) for indicador in calculados]
+
+
+@router.get("/{ativo_id}/sinais", response_model=list[SinalResponse])
+def sinais(
+    ativo_id: UUID,
+    usuario: Usuario = Depends(get_usuario_atual),
+    service: SinalService = Depends(get_sinal_service),
+) -> list[SinalResponse]:
+    try:
+        vigentes = service.avaliar_ativo(ativo_id)
+    except AtivoNaoEncontradoError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ativo nao encontrado") from exc
+
+    return [SinalResponse.de(sinal, buscar_regra_por_id(sinal.regra_id)) for sinal in vigentes]
+
+
+@router.get("/{ativo_id}/sinais/{regra_id}/backtest", response_model=ResultadoBacktestResponse)
+def sinal_backtest(
+    ativo_id: UUID,
+    regra_id: UUID,
+    usuario: Usuario = Depends(get_usuario_atual),
+    service: SinalService = Depends(get_sinal_service),
+) -> ResultadoBacktestResponse:
+    try:
+        resultado = service.backtest(regra_id, ativo_id)
+    except AtivoNaoEncontradoError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ativo nao encontrado") from exc
+    except RegraNaoEncontradaError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Regra nao encontrada") from exc
+
+    return ResultadoBacktestResponse.de(resultado)
