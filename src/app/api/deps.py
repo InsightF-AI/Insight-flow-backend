@@ -15,6 +15,7 @@ from app.integrations.brapi.client import BrapiClient
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.cotacao_repository import CotacaoRepository
 from app.repositories.interfaces.indicador_tecnico_repository import IndicadorTecnicoRepository
+from app.repositories.interfaces.sinal_repository import SinalRepository
 from app.repositories.interfaces.usuario_repository import UsuarioRepository
 from app.repositories.interfaces.watchlist_repository import WatchlistRepository
 from app.repositories.sqlalchemy.ativo_repository import SqlAlchemyAtivoRepository
@@ -22,6 +23,7 @@ from app.repositories.sqlalchemy.cotacao_repository import SqlAlchemyCotacaoRepo
 from app.repositories.sqlalchemy.indicador_tecnico_repository import (
     SqlAlchemyIndicadorTecnicoRepository,
 )
+from app.repositories.sqlalchemy.sinal_repository import SqlAlchemySinalRepository
 from app.repositories.sqlalchemy.usuario_repository import SqlAlchemyUsuarioRepository
 from app.repositories.sqlalchemy.watchlist_repository import SqlAlchemyWatchlistRepository
 from app.services.ativo_service import AtivoService
@@ -30,6 +32,7 @@ from app.services.dados_mercado_service import DadosMercadoService
 from app.services.indicador_service import IndicadorService
 from app.services.mercado_cache import MercadoCache
 from app.services.redis_mercado_cache import RedisMercadoCache
+from app.services.sinal_service import SinalService
 from app.services.usuario_service import UsuarioService
 from app.services.watchlist_service import WatchlistService
 
@@ -85,6 +88,12 @@ def get_indicador_tecnico_repository(
     return SqlAlchemyIndicadorTecnicoRepository(session)
 
 
+def get_sinal_repository(
+    session: Session = Depends(get_db_session),
+) -> SinalRepository:
+    return SqlAlchemySinalRepository(session)
+
+
 @lru_cache
 def _brapi_http_client(base_url: str) -> httpx.Client:
     return httpx.Client(base_url=base_url, timeout=10.0)
@@ -129,6 +138,15 @@ def get_indicador_service(
     indicador_repository: IndicadorTecnicoRepository = Depends(get_indicador_tecnico_repository),
 ) -> IndicadorService:
     return IndicadorService(ativo_repository, cotacao_repository, indicador_repository)
+
+
+def get_sinal_service(
+    ativo_repository: AtivoRepository = Depends(get_ativo_repository),
+    cotacao_repository: CotacaoRepository = Depends(get_cotacao_repository),
+    indicador_service: IndicadorService = Depends(get_indicador_service),
+    sinal_repository: SinalRepository = Depends(get_sinal_repository),
+) -> SinalService:
+    return SinalService(ativo_repository, cotacao_repository, indicador_service, sinal_repository)
 
 
 def get_watchlist_service(

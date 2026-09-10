@@ -16,3 +16,7 @@ class ItemWatchlistNaoEncontradoError(Exception):
 
 class AtivoNaoEncontradoError(Exception):
     pass
+
+
+class RegraNaoEncontradaError(Exception):
+    pass

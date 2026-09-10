@@ -6,6 +6,7 @@ from app.api.deps import (
     get_cotacao_repository,
     get_dados_mercado_service,
     get_indicador_tecnico_repository,
+    get_sinal_repository,
     get_usuario_repository,
     get_watchlist_repository,
 )
@@ -14,6 +15,7 @@ from tests.fixtures.fake_ativo_repository import FakeAtivoRepository
 from tests.fixtures.fake_cotacao_repository import FakeCotacaoRepository
 from tests.fixtures.fake_dados_mercado_service import FakeDadosMercadoService
 from tests.fixtures.fake_indicador_tecnico_repository import FakeIndicadorTecnicoRepository
+from tests.fixtures.fake_sinal_repository import FakeSinalRepository
 from tests.fixtures.fake_usuario_repository import FakeUsuarioRepository
 from tests.fixtures.fake_watchlist_repository import FakeWatchlistRepository
 
@@ -41,6 +43,11 @@ def cotacao_repository() -> FakeCotacaoRepository:
 @pytest.fixture
 def indicador_repository() -> FakeIndicadorTecnicoRepository:
     return FakeIndicadorTecnicoRepository()
+
+
+@pytest.fixture
+def sinal_repository() -> FakeSinalRepository:
+    return FakeSinalRepository()
 
 
 @pytest.fixture
@@ -73,6 +80,7 @@ def client(
     dados_mercado_service: FakeDadosMercadoService,
     cotacao_repository: FakeCotacaoRepository,
     indicador_repository: FakeIndicadorTecnicoRepository,
+    sinal_repository: FakeSinalRepository,
 ) -> TestClient:
     app.dependency_overrides[get_usuario_repository] = lambda: usuario_repository
     app.dependency_overrides[get_ativo_repository] = lambda: ativo_repository
@@ -80,6 +88,7 @@ def client(
     app.dependency_overrides[get_dados_mercado_service] = lambda: dados_mercado_service
     app.dependency_overrides[get_cotacao_repository] = lambda: cotacao_repository
     app.dependency_overrides[get_indicador_tecnico_repository] = lambda: indicador_repository
+    app.dependency_overrides[get_sinal_repository] = lambda: sinal_repository
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
