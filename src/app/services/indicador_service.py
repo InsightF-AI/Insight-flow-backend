@@ -136,6 +136,23 @@ class IndicadorService:
             valores_auxiliares=None,
         )
 
+    def calcular_todos(self, ativo_id: UUID) -> list[IndicadorTecnico]:
+        ativo = self._buscar_ativo(ativo_id)
+        cotacoes = self._cotacao_repository.listar_por_ativo(ativo.id)
+        candidatos = [
+            self.calcular_sma(cotacoes, 20),
+            self.calcular_sma(cotacoes, 50),
+            self.calcular_sma(cotacoes, 200),
+            self.calcular_rsi(cotacoes),
+            self.calcular_macd(cotacoes),
+            self.calcular_bollinger(cotacoes),
+            self.calcular_volume_relativo(cotacoes),
+        ]
+        calculados = [c for c in candidatos if c is not None]
+        for indicador in calculados:
+            self._indicador_repository.salvar(indicador)
+        return calculados
+
     def _buscar_ativo(self, ativo_id: UUID) -> Ativo:
         ativo = self._ativo_repository.buscar_por_id(ativo_id)
         if ativo is None:

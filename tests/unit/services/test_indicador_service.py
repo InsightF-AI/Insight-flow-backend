@@ -2,8 +2,13 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
+import pytest
+
+from app.domain.entities.ativo import Ativo
 from app.domain.entities.cotacao import Cotacao
+from app.domain.enums.tipo_ativo import TipoAtivo
 from app.domain.enums.tipo_indicador import TipoIndicador
+from app.services.exceptions import AtivoNaoEncontradoError
 from app.services.indicador_service import IndicadorService
 from tests.fixtures.fake_ativo_repository import FakeAtivoRepository
 from tests.fixtures.fake_cotacao_repository import FakeCotacaoRepository
@@ -143,3 +148,59 @@ def test_calcular_volume_relativo_com_historico_insuficiente_retorna_none():
     service = _service()
 
     assert service.calcular_volume_relativo(cotacoes, periodo=20) is None
+
+
+_PETR4 = Ativo(
+    id=_ATIVO_ID,
+    ticker="PETR4",
+    nome="Petrobras PN",
+    tipo=TipoAtivo.ACAO,
+    setor="Petroleo e Gas",
+    moeda="BRL",
+    fonte_dados="manual",
+)
+
+
+def test_calcular_todos_persiste_e_retorna_os_indicadores_calculaveis():
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_PETR4)
+    cotacao_repository = FakeCotacaoRepository()
+    cotacao_repository.salvar_muitas(_cotacoes([str(10 + i * 0.05) for i in range(60)]))
+    indicador_repository = FakeIndicadorTecnicoRepository()
+    service = IndicadorService(ativo_repository, cotacao_repository, indicador_repository)
+
+    calculados = service.calcular_todos(_ATIVO_ID)
+
+    tipos_calculados = {i.tipo for i in calculados}
+    assert TipoIndicador.SMA in tipos_calculados
+    assert TipoIndicador.RSI in tipos_calculados
+    assert TipoIndicador.MACD in tipos_calculados
+    assert TipoIndicador.BOLLINGER in tipos_calculados
+    assert TipoIndicador.VOLUME_RELATIVO in tipos_calculados
+
+    persistidos = indicador_repository.listar_por_ativo(_ATIVO_ID)
+    assert len(persistidos) == len(calculados)
+
+
+def test_calcular_todos_omite_sma_200_quando_historico_e_curto():
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_PETR4)
+    cotacao_repository = FakeCotacaoRepository()
+    cotacao_repository.salvar_muitas(_cotacoes([str(10 + i * 0.05) for i in range(60)]))
+    indicador_repository = FakeIndicadorTecnicoRepository()
+    service = IndicadorService(ativo_repository, cotacao_repository, indicador_repository)
+
+    calculados = service.calcular_todos(_ATIVO_ID)
+
+    smas = [i for i in calculados if i.tipo == TipoIndicador.SMA]
+    periodos = {i.parametros["periodo"] for i in smas}
+    assert periodos == {20, 50}
+
+
+def test_calcular_todos_com_ativo_inexistente_lanca_erro():
+    service = IndicadorService(
+        FakeAtivoRepository(), FakeCotacaoRepository(), FakeIndicadorTecnicoRepository()
+    )
+
+    with pytest.raises(AtivoNaoEncontradoError):
+        service.calcular_todos(uuid4())
