@@ -2,15 +2,22 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.deps import get_ativo_service, get_dados_mercado_service, get_usuario_atual
+from app.api.deps import (
+    get_ativo_service,
+    get_dados_mercado_service,
+    get_indicador_service,
+    get_usuario_atual,
+)
 from app.api.v1.schemas.ativo import AtivoEncontradoResponse
 from app.api.v1.schemas.cotacao import CotacaoAtualResponse, PontoHistoricoResponse
+from app.api.v1.schemas.indicador import IndicadorTecnicoResponse
 from app.domain.entities.usuario import Usuario
 from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.integrations.brapi.client import BrapiIndisponivelError, TickerNaoEncontradoError
 from app.services.ativo_service import AtivoService
 from app.services.dados_mercado_service import DadosMercadoService
 from app.services.exceptions import AtivoNaoEncontradoError
+from app.services.indicador_service import IndicadorService
 
 router = APIRouter(prefix="/ativos", tags=["ativos"])
 
@@ -74,3 +81,17 @@ def historico(
         ) from exc
 
     return [PontoHistoricoResponse.de(ponto) for ponto in pontos]
+
+
+@router.get("/{ativo_id}/indicadores", response_model=list[IndicadorTecnicoResponse])
+def indicadores(
+    ativo_id: UUID,
+    usuario: Usuario = Depends(get_usuario_atual),
+    service: IndicadorService = Depends(get_indicador_service),
+) -> list[IndicadorTecnicoResponse]:
+    try:
+        calculados = service.calcular_todos(ativo_id)
+    except AtivoNaoEncontradoError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ativo nao encontrado") from exc
+
+    return [IndicadorTecnicoResponse.de(indicador) for indicador in calculados]
