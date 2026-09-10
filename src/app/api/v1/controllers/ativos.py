@@ -112,7 +112,12 @@ def sinais(
     except AtivoNaoEncontradoError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Ativo nao encontrado") from exc
 
-    return [SinalResponse.de(sinal, buscar_regra_por_id(sinal.regra_id)) for sinal in vigentes]
+    respostas = []
+    for sinal in vigentes:
+        regra = buscar_regra_por_id(sinal.regra_id)
+        if regra is not None:
+            respostas.append(SinalResponse.de(sinal, regra))
+    return respostas
 
 
 @router.get("/{ativo_id}/sinais/{regra_id}/backtest", response_model=ResultadoBacktestResponse)
