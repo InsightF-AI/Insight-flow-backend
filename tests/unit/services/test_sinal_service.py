@@ -9,7 +9,7 @@ from app.domain.entities.cotacao import Cotacao
 from app.domain.entities.sinal import Sinal
 from app.domain.enums.tipo_ativo import TipoAtivo
 from app.domain.regras_sinal_padrao import REGRAS_PADRAO
-from app.services.exceptions import AtivoNaoEncontradoError
+from app.services.exceptions import AtivoNaoEncontradoError, RegraNaoEncontradaError
 from app.services.indicador_service import IndicadorService
 from app.services.sinal_service import SinalService, avaliar_condicao
 from tests.fixtures.fake_ativo_repository import FakeAtivoRepository
@@ -243,3 +243,73 @@ def test_score_composto_sem_sinais_vigentes_retorna_zero():
     service = _service(ativo_repository)
 
     assert service.score_composto(_ATIVO.id) == Decimal(0)
+
+
+def _cotacoes_backtest_rsi(ativo_id) -> list[Cotacao]:
+    precos = (
+        [20.0] * 30
+        + [20 - i * 1.0 for i in range(1, 11)]
+        + [10 + i * 0.5 for i in range(1, 21)]
+    )
+    base = datetime.now(UTC) - timedelta(days=len(precos) - 1)
+    return [
+        Cotacao(
+            id=uuid4(),
+            ativo_id=ativo_id,
+            data_hora=base + timedelta(days=i),
+            abertura=Decimal(str(preco)),
+            maxima=Decimal(str(preco)),
+            minima=Decimal(str(preco)),
+            fechamento=Decimal(str(preco)),
+            volume=Decimal(1000000),
+        )
+        for i, preco in enumerate(precos)
+    ]
+
+
+def test_backtest_encontra_ocorrencia_e_calcula_retornos_medios():
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_ATIVO)
+    cotacao_repository = FakeCotacaoRepository()
+    cotacao_repository.salvar_muitas(_cotacoes_backtest_rsi(_ATIVO.id))
+    service = _service(ativo_repository, cotacao_repository)
+
+    resultado = service.backtest(_REGRA_SOBREVENDA_RSI.id, _ATIVO.id)
+
+    assert resultado.regra_id == _REGRA_SOBREVENDA_RSI.id
+    assert resultado.ativo_id == _ATIVO.id
+    assert resultado.total_ocorrencias == 1
+    assert round(resultado.retorno_medio_5_pregoes, 2) == Decimal("-26.32")
+    assert round(resultado.retorno_medio_20_pregoes, 2) == Decimal("-18.42")
+    assert resultado.retorno_medio_60_pregoes is None
+
+
+def test_backtest_sem_ocorrencias_retorna_zero_e_janelas_nulas():
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_ATIVO)
+    cotacao_repository = FakeCotacaoRepository()
+    cotacao_repository.salvar_muitas(_cotacoes_rsi_alto(_ATIVO.id))
+    service = _service(ativo_repository, cotacao_repository)
+
+    resultado = service.backtest(_REGRA_SOBREVENDA_RSI.id, _ATIVO.id)
+
+    assert resultado.total_ocorrencias == 0
+    assert resultado.retorno_medio_5_pregoes is None
+    assert resultado.retorno_medio_20_pregoes is None
+    assert resultado.retorno_medio_60_pregoes is None
+
+
+def test_backtest_com_regra_inexistente_lanca_erro():
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_ATIVO)
+    service = _service(ativo_repository)
+
+    with pytest.raises(RegraNaoEncontradaError):
+        service.backtest(uuid4(), _ATIVO.id)
+
+
+def test_backtest_com_ativo_inexistente_lanca_erro():
+    service = _service()
+
+    with pytest.raises(AtivoNaoEncontradoError):
+        service.backtest(_REGRA_SOBREVENDA_RSI.id, uuid4())

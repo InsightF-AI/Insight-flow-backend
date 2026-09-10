@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -9,11 +9,12 @@ from app.domain.entities.ativo import Ativo
 from app.domain.entities.indicador_tecnico import IndicadorTecnico
 from app.domain.entities.sinal import Sinal
 from app.domain.enums.tipo_indicador import TipoIndicador
-from app.domain.regras_sinal_padrao import REGRAS_PADRAO
+from app.domain.regras_sinal_padrao import REGRAS_PADRAO, buscar_regra_por_id
+from app.domain.value_objects.resultado_backtest import ResultadoBacktest
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.cotacao_repository import CotacaoRepository
 from app.repositories.interfaces.sinal_repository import SinalRepository
-from app.services.exceptions import AtivoNaoEncontradoError
+from app.services.exceptions import AtivoNaoEncontradoError, RegraNaoEncontradaError
 from app.services.indicador_service import IndicadorService
 
 _OPERADORES: dict[str, Callable[[Decimal, Decimal], bool]] = {
@@ -91,6 +92,55 @@ class SinalService:
             if self._sinal_repository.buscar_ativo(ativo.id, regra.id) is not None:
                 total += regra.peso
         return total
+
+    def backtest(self, regra_id: UUID, ativo_id: UUID) -> ResultadoBacktest:
+        ativo = self._buscar_ativo(ativo_id)
+        regra = buscar_regra_por_id(regra_id)
+        if regra is None:
+            raise RegraNaoEncontradaError(regra_id)
+
+        cotacoes = self._cotacao_repository.listar_por_ativo(ativo.id)
+        corte = datetime.now(UTC) - timedelta(days=730)
+
+        metodo_calculo = {
+            TipoIndicador.SMA: self._indicador_service.calcular_sma,
+            TipoIndicador.RSI: self._indicador_service.calcular_rsi,
+            TipoIndicador.MACD: self._indicador_service.calcular_macd,
+            TipoIndicador.BOLLINGER: self._indicador_service.calcular_bollinger,
+            TipoIndicador.VOLUME_RELATIVO: self._indicador_service.calcular_volume_relativo,
+        }[TipoIndicador(regra.condicoes["tipo_indicador"])]
+        parametros = regra.condicoes["parametros"]
+
+        ocorrencias: list[int] = []
+        satisfeita_anterior = False
+        for i, cotacao in enumerate(cotacoes):
+            indicador = metodo_calculo(cotacoes[: i + 1], **parametros)
+            satisfeita = indicador is not None and avaliar_condicao(
+                regra.condicoes, indicador.valor
+            )
+            if cotacao.data_hora >= corte and satisfeita and not satisfeita_anterior:
+                ocorrencias.append(i)
+            satisfeita_anterior = satisfeita
+
+        retornos: dict[int, list[Decimal]] = {5: [], 20: [], 60: []}
+        for i in ocorrencias:
+            preco_base = cotacoes[i].fechamento
+            for janela in (5, 20, 60):
+                if i + janela < len(cotacoes):
+                    preco_futuro = cotacoes[i + janela].fechamento
+                    retornos[janela].append((preco_futuro / preco_base - 1) * 100)
+
+        def _media(valores: list[Decimal]) -> Decimal | None:
+            return sum(valores) / len(valores) if valores else None
+
+        return ResultadoBacktest(
+            regra_id=regra.id,
+            ativo_id=ativo.id,
+            total_ocorrencias=len(ocorrencias),
+            retorno_medio_5_pregoes=_media(retornos[5]),
+            retorno_medio_20_pregoes=_media(retornos[20]),
+            retorno_medio_60_pregoes=_media(retornos[60]),
+        )
 
     def _buscar_ativo(self, ativo_id: UUID) -> Ativo:
         ativo = self._ativo_repository.buscar_por_id(ativo_id)
