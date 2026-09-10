@@ -121,6 +121,7 @@ def _service(ativo_repository=None, cotacao_repository=None, sinal_repository=No
 
 
 _REGRA_SOBREVENDA_RSI = next(r for r in REGRAS_PADRAO if r.nome == "Sobrevenda RSI")
+_REGRA_SOBRECOMPRA_RSI = next(r for r in REGRAS_PADRAO if r.nome == "Sobrecompra RSI")
 
 
 def test_avaliar_ativo_cria_sinal_quando_condicao_passa_a_satisfeita():
@@ -137,6 +138,22 @@ def test_avaliar_ativo_cria_sinal_quando_condicao_passa_a_satisfeita():
     assert len(sinais_rsi) == 1
     assert sinais_rsi[0].data_desativacao is None
     assert sinal_repository.buscar_ativo(_ATIVO.id, _REGRA_SOBREVENDA_RSI.id) is not None
+
+
+def test_avaliar_ativo_cria_sinal_de_sobrecompra_com_rsi_alto():
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_ATIVO)
+    cotacao_repository = FakeCotacaoRepository()
+    cotacao_repository.salvar_muitas(_cotacoes_rsi_alto(_ATIVO.id))
+    sinal_repository = FakeSinalRepository()
+    service = _service(ativo_repository, cotacao_repository, sinal_repository)
+
+    vigentes = service.avaliar_ativo(_ATIVO.id)
+
+    sinais_rsi = [s for s in vigentes if s.regra_id == _REGRA_SOBRECOMPRA_RSI.id]
+    assert len(sinais_rsi) == 1
+    assert sinais_rsi[0].data_desativacao is None
+    assert sinal_repository.buscar_ativo(_ATIVO.id, _REGRA_SOBRECOMPRA_RSI.id) is not None
 
 
 def test_avaliar_ativo_mantem_o_mesmo_sinal_sem_duplicar():
