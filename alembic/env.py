@@ -6,6 +6,7 @@ from alembic import context
 from app.core.config import get_settings
 from app.db.base import Base
 from app.db.models.ativo import AtivoModel
+from app.db.models.cotacao import CotacaoModel
 from app.db.models.usuario import UsuarioModel
 from app.db.models.watchlist import WatchlistModel
 
