@@ -14,15 +14,20 @@ from app.domain.entities.usuario import Usuario
 from app.integrations.brapi.client import BrapiClient
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.cotacao_repository import CotacaoRepository
+from app.repositories.interfaces.indicador_tecnico_repository import IndicadorTecnicoRepository
 from app.repositories.interfaces.usuario_repository import UsuarioRepository
 from app.repositories.interfaces.watchlist_repository import WatchlistRepository
 from app.repositories.sqlalchemy.ativo_repository import SqlAlchemyAtivoRepository
 from app.repositories.sqlalchemy.cotacao_repository import SqlAlchemyCotacaoRepository
+from app.repositories.sqlalchemy.indicador_tecnico_repository import (
+    SqlAlchemyIndicadorTecnicoRepository,
+)
 from app.repositories.sqlalchemy.usuario_repository import SqlAlchemyUsuarioRepository
 from app.repositories.sqlalchemy.watchlist_repository import SqlAlchemyWatchlistRepository
 from app.services.ativo_service import AtivoService
 from app.services.cached_dados_mercado_service import CachedDadosMercadoService
 from app.services.dados_mercado_service import DadosMercadoService
+from app.services.indicador_service import IndicadorService
 from app.services.mercado_cache import MercadoCache
 from app.services.redis_mercado_cache import RedisMercadoCache
 from app.services.usuario_service import UsuarioService
@@ -74,6 +79,12 @@ def get_cotacao_repository(
     return SqlAlchemyCotacaoRepository(session)
 
 
+def get_indicador_tecnico_repository(
+    session: Session = Depends(get_db_session),
+) -> IndicadorTecnicoRepository:
+    return SqlAlchemyIndicadorTecnicoRepository(session)
+
+
 @lru_cache
 def _brapi_http_client(base_url: str) -> httpx.Client:
     return httpx.Client(base_url=base_url, timeout=10.0)
@@ -110,6 +121,14 @@ def get_ativo_service(
     cotacao_repository: CotacaoRepository = Depends(get_cotacao_repository),
 ) -> AtivoService:
     return AtivoService(ativo_repository, dados_mercado_service, cotacao_repository)
+
+
+def get_indicador_service(
+    ativo_repository: AtivoRepository = Depends(get_ativo_repository),
+    cotacao_repository: CotacaoRepository = Depends(get_cotacao_repository),
+    indicador_repository: IndicadorTecnicoRepository = Depends(get_indicador_tecnico_repository),
+) -> IndicadorService:
+    return IndicadorService(ativo_repository, cotacao_repository, indicador_repository)
 
 
 def get_watchlist_service(
