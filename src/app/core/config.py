@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     brapi_base_url: str = "https://brapi.dev"
     brapi_api_key: str = ""
 
+    redis_url: str = "redis://localhost:6381/0"
+    cache_ttl_cotacao_atual_segundos: int = 60
+
 
 @lru_cache
 def get_settings() -> Settings:

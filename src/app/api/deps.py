@@ -2,6 +2,7 @@ from collections.abc import Generator
 from functools import lru_cache
 
 import httpx
+import redis
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session, sessionmaker
@@ -20,7 +21,10 @@ from app.repositories.sqlalchemy.cotacao_repository import SqlAlchemyCotacaoRepo
 from app.repositories.sqlalchemy.usuario_repository import SqlAlchemyUsuarioRepository
 from app.repositories.sqlalchemy.watchlist_repository import SqlAlchemyWatchlistRepository
 from app.services.ativo_service import AtivoService
+from app.services.cached_dados_mercado_service import CachedDadosMercadoService
 from app.services.dados_mercado_service import DadosMercadoService
+from app.services.mercado_cache import MercadoCache
+from app.services.redis_mercado_cache import RedisMercadoCache
 from app.services.usuario_service import UsuarioService
 from app.services.watchlist_service import WatchlistService
 
@@ -79,10 +83,25 @@ def get_brapi_client(settings: Settings = Depends(get_settings)) -> BrapiClient:
     return BrapiClient(_brapi_http_client(settings.brapi_base_url), settings.brapi_api_key or None)
 
 
+@lru_cache
+def _redis_client(redis_url: str) -> redis.Redis:
+    return redis.Redis.from_url(redis_url)
+
+
+def get_mercado_cache(settings: Settings = Depends(get_settings)) -> MercadoCache:
+    return RedisMercadoCache(_redis_client(settings.redis_url))
+
+
 def get_dados_mercado_service(
     brapi_client: BrapiClient = Depends(get_brapi_client),
+    mercado_cache: MercadoCache = Depends(get_mercado_cache),
+    settings: Settings = Depends(get_settings),
 ) -> DadosMercadoService:
-    return DadosMercadoService(brapi_client)
+    return CachedDadosMercadoService(
+        DadosMercadoService(brapi_client),
+        mercado_cache,
+        ttl_cotacao_atual=settings.cache_ttl_cotacao_atual_segundos,
+    )
 
 
 def get_ativo_service(
