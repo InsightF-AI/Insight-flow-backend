@@ -25,6 +25,12 @@ _MAPA_PERIODO: dict[PeriodoHistorico, tuple[str, str]] = {
     PeriodoHistorico.CINCO_ANOS: ("5y", "1wk"),
 }
 
+INTERVALO_DIARIO = "1d"
+
+
+def intervalo_de(periodo: PeriodoHistorico) -> str:
+    return _MAPA_PERIODO[periodo][1]
+
 
 class BrapiIndisponivelError(Exception):
     pass
