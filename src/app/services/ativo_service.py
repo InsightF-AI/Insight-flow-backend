@@ -5,7 +5,12 @@ from uuid import UUID, uuid4
 from app.domain.entities.ativo import Ativo
 from app.domain.entities.cotacao import Cotacao
 from app.domain.enums.periodo_historico import PeriodoHistorico
-from app.integrations.brapi.client import CotacaoAtual, PontoHistorico
+from app.integrations.brapi.client import (
+    INTERVALO_DIARIO,
+    CotacaoAtual,
+    PontoHistorico,
+    intervalo_de,
+)
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.cotacao_repository import CotacaoRepository
 from app.services.dados_mercado_service import DadosMercadoService
@@ -30,9 +35,10 @@ class AtivoService:
     def historico(self, ativo_id: UUID, periodo: PeriodoHistorico) -> list[PontoHistorico]:
         ativo = self._buscar_ativo(ativo_id)
         pontos = self._dados_mercado_service.buscar_historico(ativo.ticker, periodo)
-        self._cotacao_repository.salvar_muitas(
-            [self._para_cotacao(ativo.id, ponto) for ponto in pontos]
-        )
+        if intervalo_de(periodo) == INTERVALO_DIARIO:
+            self._cotacao_repository.salvar_muitas(
+                [self._para_cotacao(ativo.id, ponto) for ponto in pontos]
+            )
         return pontos
 
     @staticmethod

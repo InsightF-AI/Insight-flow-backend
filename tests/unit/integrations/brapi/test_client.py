@@ -4,9 +4,11 @@ import pytest
 from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.domain.enums.tipo_ativo import TipoAtivo
 from app.integrations.brapi.client import (
+    INTERVALO_DIARIO,
     BrapiClient,
     BrapiIndisponivelError,
     TickerNaoEncontradoError,
+    intervalo_de,
 )
 
 
@@ -14,6 +16,24 @@ def _client(handler, api_key: str | None = None) -> BrapiClient:
     transporte = httpx.MockTransport(handler)
     http_client = httpx.Client(base_url="https://brapi.dev", transport=transporte)
     return BrapiClient(http_client, api_key=api_key)
+
+
+def test_intervalo_de_periodos_diarios_e_intervalo_diario():
+    for periodo in (
+        PeriodoHistorico.UMA_SEMANA,
+        PeriodoHistorico.UM_MES,
+        PeriodoHistorico.TRES_MESES,
+        PeriodoHistorico.UM_ANO,
+    ):
+        assert intervalo_de(periodo) == INTERVALO_DIARIO
+
+
+def test_intervalo_de_um_dia_e_cinco_minutos():
+    assert intervalo_de(PeriodoHistorico.UM_DIA) == "5m"
+
+
+def test_intervalo_de_cinco_anos_e_semanal():
+    assert intervalo_de(PeriodoHistorico.CINCO_ANOS) == "1wk"
 
 
 def test_buscar_ativos_mapeia_resultados_da_brapi():

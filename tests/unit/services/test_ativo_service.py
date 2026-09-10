@@ -114,6 +114,28 @@ def test_historico_persiste_as_cotacoes_retornadas_no_repositorio():
     assert persistidas[0].volume == ponto.volume
 
 
+def test_historico_de_periodo_nao_diario_nao_persiste():
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_PETR4)
+    ponto = PontoHistorico(
+        data=datetime(2024, 1, 1, tzinfo=UTC),
+        abertura=Decimal(35),
+        maxima=Decimal(36),
+        minima=Decimal("34.5"),
+        fechamento=Decimal("35.8"),
+        volume=Decimal(1000000),
+    )
+    dados_mercado_service = FakeDadosMercadoService(historicos={"PETR4": [ponto]})
+    cotacao_repository = FakeCotacaoRepository()
+    service = _service(ativo_repository, dados_mercado_service, cotacao_repository)
+
+    for periodo in (PeriodoHistorico.UM_DIA, PeriodoHistorico.CINCO_ANOS):
+        resultado = service.historico(_PETR4.id, periodo)
+        assert resultado == [ponto]
+
+    assert cotacao_repository.listar_por_ativo(_PETR4.id) == []
+
+
 def test_historico_nao_persiste_quando_nao_ha_pontos():
     ativo_repository = FakeAtivoRepository()
     ativo_repository.salvar(_PETR4)
