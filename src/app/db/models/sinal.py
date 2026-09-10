@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Uuid
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -11,6 +11,15 @@ from app.db.base import Base
 
 class SinalModel(Base):
     __tablename__ = "sinais"
+    __table_args__ = (
+        Index(
+            "uq_sinais_vigente",
+            "ativo_id",
+            "regra_id",
+            unique=True,
+            postgresql_where=text("data_desativacao IS NULL"),
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
     ativo_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("ativos.id"), nullable=False)

@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.domain.entities.ativo import Ativo
 from app.domain.entities.sinal import Sinal
@@ -97,3 +98,13 @@ def test_listar_por_ativo_sem_sinais_retorna_lista_vazia(session):
     repo = SqlAlchemySinalRepository(session)
 
     assert repo.listar_por_ativo(ativo.id) == []
+
+
+def test_salvar_sinal_vigente_duplicado_para_mesma_regra_levanta_integrity_error(session):
+    ativo = _novo_ativo(session)
+    repo = SqlAlchemySinalRepository(session)
+    regra_id = uuid4()
+    repo.salvar(_sinal(ativo.id, regra_id=regra_id))
+
+    with pytest.raises(IntegrityError):
+        repo.salvar(_sinal(ativo.id, regra_id=regra_id))

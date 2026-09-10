@@ -33,7 +33,15 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
+    op.create_index(
+        "uq_sinais_vigente",
+        "sinais",
+        ["ativo_id", "regra_id"],
+        unique=True,
+        postgresql_where=sa.text("data_desativacao IS NULL"),
+    )
 
 
 def downgrade() -> None:
+    op.drop_index("uq_sinais_vigente", table_name="sinais")
     op.drop_table("sinais")
