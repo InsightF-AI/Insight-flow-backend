@@ -3,12 +3,14 @@ from fastapi.testclient import TestClient
 
 from app.api.deps import (
     get_ativo_repository,
+    get_cotacao_repository,
     get_dados_mercado_service,
     get_usuario_repository,
     get_watchlist_repository,
 )
 from app.main import app
 from tests.fixtures.fake_ativo_repository import FakeAtivoRepository
+from tests.fixtures.fake_cotacao_repository import FakeCotacaoRepository
 from tests.fixtures.fake_dados_mercado_service import FakeDadosMercadoService
 from tests.fixtures.fake_usuario_repository import FakeUsuarioRepository
 from tests.fixtures.fake_watchlist_repository import FakeWatchlistRepository
@@ -27,6 +29,11 @@ def ativo_repository() -> FakeAtivoRepository:
 @pytest.fixture
 def watchlist_repository() -> FakeWatchlistRepository:
     return FakeWatchlistRepository()
+
+
+@pytest.fixture
+def cotacao_repository() -> FakeCotacaoRepository:
+    return FakeCotacaoRepository()
 
 
 @pytest.fixture
@@ -57,11 +64,13 @@ def client(
     ativo_repository: FakeAtivoRepository,
     watchlist_repository: FakeWatchlistRepository,
     dados_mercado_service: FakeDadosMercadoService,
+    cotacao_repository: FakeCotacaoRepository,
 ) -> TestClient:
     app.dependency_overrides[get_usuario_repository] = lambda: usuario_repository
     app.dependency_overrides[get_ativo_repository] = lambda: ativo_repository
     app.dependency_overrides[get_watchlist_repository] = lambda: watchlist_repository
     app.dependency_overrides[get_dados_mercado_service] = lambda: dados_mercado_service
+    app.dependency_overrides[get_cotacao_repository] = lambda: cotacao_repository
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
