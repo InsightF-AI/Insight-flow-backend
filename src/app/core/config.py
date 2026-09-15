@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6381/0"
     cache_ttl_cotacao_atual_segundos: int = 60
 
+    bcb_base_url: str = "https://api.bcb.gov.br"
+    cache_ttl_cambio_segundos: int = 21600
+    cache_ttl_cambio_fallback_segundos: int = 2592000
+
 
 @lru_cache
 def get_settings() -> Settings:

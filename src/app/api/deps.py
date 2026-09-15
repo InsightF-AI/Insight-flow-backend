@@ -11,6 +11,7 @@ from app.core.config import Settings, get_settings
 from app.core.security import TokenInvalidoError, decodificar_token
 from app.db.session import criar_session_factory
 from app.domain.entities.usuario import Usuario
+from app.integrations.bcb.client import BcbClient
 from app.integrations.brapi.client import BrapiClient
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.cotacao_repository import CotacaoRepository
@@ -27,7 +28,9 @@ from app.repositories.sqlalchemy.sinal_repository import SqlAlchemySinalReposito
 from app.repositories.sqlalchemy.usuario_repository import SqlAlchemyUsuarioRepository
 from app.repositories.sqlalchemy.watchlist_repository import SqlAlchemyWatchlistRepository
 from app.services.ativo_service import AtivoService
+from app.services.cached_cambio_service import CachedCambioService
 from app.services.cached_dados_mercado_service import CachedDadosMercadoService
+from app.services.cambio_service import BcbCambioService, CambioService
 from app.services.dados_mercado_service import DadosMercadoService
 from app.services.indicador_service import IndicadorService
 from app.services.mercado_cache import MercadoCache
@@ -104,6 +107,15 @@ def get_brapi_client(settings: Settings = Depends(get_settings)) -> BrapiClient:
 
 
 @lru_cache
+def _bcb_http_client(base_url: str) -> httpx.Client:
+    return httpx.Client(base_url=base_url, timeout=10.0)
+
+
+def get_bcb_client(settings: Settings = Depends(get_settings)) -> BcbClient:
+    return BcbClient(_bcb_http_client(settings.bcb_base_url))
+
+
+@lru_cache
 def _redis_client(redis_url: str) -> redis.Redis:
     return redis.Redis.from_url(redis_url)
 
@@ -121,6 +133,19 @@ def get_dados_mercado_service(
         DadosMercadoService(brapi_client),
         mercado_cache,
         ttl_cotacao_atual=settings.cache_ttl_cotacao_atual_segundos,
+    )
+
+
+def get_cambio_service(
+    bcb_client: BcbClient = Depends(get_bcb_client),
+    mercado_cache: MercadoCache = Depends(get_mercado_cache),
+    settings: Settings = Depends(get_settings),
+) -> CambioService:
+    return CachedCambioService(
+        BcbCambioService(bcb_client),
+        mercado_cache,
+        ttl_segundos=settings.cache_ttl_cambio_segundos,
+        ttl_fallback_segundos=settings.cache_ttl_cambio_fallback_segundos,
     )
 
 
