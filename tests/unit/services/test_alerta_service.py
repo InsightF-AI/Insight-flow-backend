@@ -6,6 +6,7 @@ import pytest
 
 from app.domain.enums.tipo_ativo import TipoAtivo
 from app.domain.enums.tipo_condicao_alerta import TipoCondicaoAlerta
+from app.integrations.bcb.client import BcbIndisponivelError
 from app.integrations.brapi.client import AtivoEncontrado
 from app.services.alerta_service import AlertaService
 from app.services.exceptions import AlertaNaoEncontradoError, AtivoNaoEncontradoError
@@ -180,3 +181,115 @@ def test_remover_alerta_inexistente_lanca_erro():
 
     with pytest.raises(AlertaNaoEncontradoError):
         service.remover_alerta(uuid4(), uuid4())
+
+
+def test_avaliar_alertas_dispara_quando_preco_atinge_a_condicao():
+    service = _service([_PETR4])
+    item = service.criar_alerta(
+        usuario_id=uuid4(),
+        ticker="PETR4",
+        tipo_condicao=TipoCondicaoAlerta.PRECO_MAIOR_IGUAL,
+        valor_alvo=Decimal("40.00"),
+    )
+
+    disparados = service.avaliar_alertas(item.ativo.id, Decimal("40.00"))
+
+    assert len(disparados) == 1
+    assert disparados[0].id == item.alerta.id
+
+
+def test_avaliar_alertas_nao_dispara_novamente_enquanto_condicao_permanece():
+    service = _service([_PETR4])
+    item = service.criar_alerta(
+        usuario_id=uuid4(),
+        ticker="PETR4",
+        tipo_condicao=TipoCondicaoAlerta.PRECO_MAIOR_IGUAL,
+        valor_alvo=Decimal("40.00"),
+    )
+    service.avaliar_alertas(item.ativo.id, Decimal("40.00"))
+
+    disparados = service.avaliar_alertas(item.ativo.id, Decimal("41.00"))
+
+    assert disparados == []
+
+
+def test_avaliar_alertas_rearma_quando_condicao_deixa_de_ser_atendida():
+    service = _service([_PETR4])
+    item = service.criar_alerta(
+        usuario_id=uuid4(),
+        ticker="PETR4",
+        tipo_condicao=TipoCondicaoAlerta.PRECO_MAIOR_IGUAL,
+        valor_alvo=Decimal("40.00"),
+    )
+    service.avaliar_alertas(item.ativo.id, Decimal("40.00"))
+    service.avaliar_alertas(item.ativo.id, Decimal("39.00"))
+
+    disparados = service.avaliar_alertas(item.ativo.id, Decimal("40.50"))
+
+    assert len(disparados) == 1
+
+
+def test_avaliar_alertas_ignora_alerta_inativo():
+    service = _service([_PETR4])
+    item = service.criar_alerta(
+        usuario_id=uuid4(),
+        ticker="PETR4",
+        tipo_condicao=TipoCondicaoAlerta.PRECO_MAIOR_IGUAL,
+        valor_alvo=Decimal("40.00"),
+    )
+    item.alerta.ativo = False
+
+    disparados = service.avaliar_alertas(item.ativo.id, Decimal("40.00"))
+
+    assert disparados == []
+
+
+def test_avaliar_alertas_converte_preco_quando_moeda_alvo_difere_do_ativo():
+    cambio_service = FakeCambioService(taxa=Decimal("5.00"))
+    service = AlertaService(
+        FakeAlertaRepository(),
+        FakeAtivoRepository(),
+        FakeDadosMercadoService([_PETR4]),
+        cambio_service,
+    )
+    item = service.criar_alerta(
+        usuario_id=uuid4(),
+        ticker="PETR4",
+        tipo_condicao=TipoCondicaoAlerta.PRECO_MAIOR_IGUAL,
+        valor_alvo=Decimal("200.00"),
+    )
+    item.alerta.moeda_alvo = "USD"
+
+    disparados = service.avaliar_alertas(item.ativo.id, Decimal("40.00"))
+
+    assert len(disparados) == 1
+    assert cambio_service.chamadas == 1
+
+
+def test_avaliar_alertas_pula_alerta_quando_cambio_indisponivel_e_continua_o_lote():
+    cambio_service = FakeCambioService(indisponivel=True)
+    service = AlertaService(
+        FakeAlertaRepository(),
+        FakeAtivoRepository(),
+        FakeDadosMercadoService([_PETR4]),
+        cambio_service,
+    )
+    usuario_id = uuid4()
+    item_com_conversao = service.criar_alerta(
+        usuario_id=usuario_id,
+        ticker="PETR4",
+        tipo_condicao=TipoCondicaoAlerta.PRECO_MAIOR_IGUAL,
+        valor_alvo=Decimal("200.00"),
+    )
+    item_com_conversao.alerta.moeda_alvo = "USD"
+    item_sem_conversao = service.criar_alerta(
+        usuario_id=usuario_id,
+        ticker="PETR4",
+        tipo_condicao=TipoCondicaoAlerta.PRECO_MAIOR_IGUAL,
+        valor_alvo=Decimal("40.00"),
+    )
+
+    disparados = service.avaliar_alertas(item_com_conversao.ativo.id, Decimal("40.00"))
+
+    assert len(disparados) == 1
+    assert disparados[0].id == item_sem_conversao.alerta.id

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -8,11 +9,14 @@ from uuid import UUID, uuid4
 from app.domain.entities.alerta_personalizado import AlertaPersonalizado
 from app.domain.entities.ativo import Ativo
 from app.domain.enums.tipo_condicao_alerta import TipoCondicaoAlerta
+from app.integrations.bcb.client import BcbIndisponivelError
 from app.repositories.interfaces.alerta_repository import AlertaRepository
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.services.cambio_service import CambioService
 from app.services.dados_mercado_service import DadosMercadoService
 from app.services.exceptions import AlertaNaoEncontradoError, AtivoNaoEncontradoError
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -102,6 +106,32 @@ class AlertaService:
     def remover_alerta(self, usuario_id: UUID, alerta_id: UUID) -> None:
         alerta = self._buscar_alerta(usuario_id, alerta_id)
         self._alerta_repository.remover(alerta)
+
+    def avaliar_alertas(self, ativo_id: UUID, preco_atual: Decimal) -> list[AlertaPersonalizado]:
+        ativo = self._ativo_repository.buscar_por_id(ativo_id)
+        if ativo is None:
+            raise AtivoNaoEncontradoError(ativo_id)
+
+        agora = datetime.now(UTC)
+        disparados: list[AlertaPersonalizado] = []
+        for alerta in self._alerta_repository.listar_ativos_por_ativo(ativo_id):
+            try:
+                preco_convertido = self._cambio_service.converter(
+                    preco_atual, de=ativo.moeda, para=alerta.moeda_alvo
+                )
+            except BcbIndisponivelError:
+                logger.warning("Cambio indisponivel; pulando avaliacao do alerta %s.", alerta.id)
+                continue
+
+            estado_anterior = alerta.ultimo_estado
+            disparou = alerta.avaliar(preco_convertido, agora)
+            if disparou:
+                self._alerta_repository.salvar(alerta)
+                disparados.append(alerta)
+            elif alerta.ultimo_estado != estado_anterior:
+                self._alerta_repository.salvar(alerta)
+
+        return disparados
 
     def _buscar_alerta(self, usuario_id: UUID, alerta_id: UUID) -> AlertaPersonalizado:
         alerta = self._alerta_repository.buscar_por_id(alerta_id)
