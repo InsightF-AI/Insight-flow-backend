@@ -5,6 +5,7 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 from app.core.config import get_settings
 from app.db.base import Base
+from app.db.models.alerta_personalizado import AlertaPersonalizadoModel
 from app.db.models.ativo import AtivoModel
 from app.db.models.cotacao import CotacaoModel
 from app.db.models.indicador_tecnico import IndicadorTecnicoModel
