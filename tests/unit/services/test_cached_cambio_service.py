@@ -4,6 +4,8 @@ import pytest
 
 from app.integrations.bcb.client import BcbIndisponivelError
 from app.services.cached_cambio_service import CachedCambioService
+from app.services.cambio_service import CambioService
+from app.services.exceptions import MoedaNaoSuportadaError
 from tests.fixtures.fake_cambio_service import FakeCambioService
 from tests.fixtures.fake_mercado_cache import FakeMercadoCache
 
@@ -73,6 +75,18 @@ def test_converter_e_herdado_e_usa_obter_taxa_da_subclasse():
     cache = FakeMercadoCache()
     service = _service(interno, cache)
 
-    resultado = service.converter(Decimal("10"), "USD", "BRL")
+    resultado = service.converter(Decimal(10), "USD", "BRL")
 
     assert resultado == Decimal("50.00")
+
+
+def test_moeda_nao_suportada_propaga_sem_usar_fallback():
+    class _CambioServiceFalso(CambioService):
+        def obter_taxa(self, de: str, para: str) -> Decimal:
+            raise MoedaNaoSuportadaError(f"{de}->{para}")
+
+    cache = FakeMercadoCache()
+    service = _service(_CambioServiceFalso(), cache)
+
+    with pytest.raises(MoedaNaoSuportadaError):
+        service.obter_taxa("EUR", "BRL")

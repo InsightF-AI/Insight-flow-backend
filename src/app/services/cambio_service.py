@@ -25,10 +25,10 @@ class BcbCambioService(CambioService):
     def obter_taxa(self, de: str, para: str) -> Decimal:
         if de not in MOEDAS_SUPORTADAS or para not in MOEDAS_SUPORTADAS:
             raise MoedaNaoSuportadaError(f"{de}->{para}")
+        if de == para:
+            return Decimal(1)
 
         ptax = self._bcb_client.buscar_ptax_venda()
         if de == "USD" and para == "BRL":
             return ptax
-        if de == "BRL" and para == "USD":
-            return Decimal(1) / ptax
-        raise MoedaNaoSuportadaError(f"{de}->{para}")
+        return Decimal(1) / ptax

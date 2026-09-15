@@ -28,9 +28,9 @@ def test_converter_com_mesma_moeda_retorna_o_valor_sem_chamar_o_client():
     bcb_client = _BcbClientFalso(ptax=Decimal("5.00"))
     service = BcbCambioService(bcb_client)
 
-    resultado = service.converter(Decimal("100"), "BRL", "BRL")
+    resultado = service.converter(Decimal(100), "BRL", "BRL")
 
-    assert resultado == Decimal("100")
+    assert resultado == Decimal(100)
     assert bcb_client.chamadas == 0
 
 
@@ -38,7 +38,7 @@ def test_converter_usd_para_brl_multiplica_pela_ptax():
     bcb_client = _BcbClientFalso(ptax=Decimal("5.00"))
     service = BcbCambioService(bcb_client)
 
-    resultado = service.converter(Decimal("10"), "USD", "BRL")
+    resultado = service.converter(Decimal(10), "USD", "BRL")
 
     assert resultado == Decimal("50.00")
 
@@ -47,9 +47,19 @@ def test_converter_brl_para_usd_divide_pela_ptax():
     bcb_client = _BcbClientFalso(ptax=Decimal("5.00"))
     service = BcbCambioService(bcb_client)
 
-    resultado = service.converter(Decimal("50"), "BRL", "USD")
+    resultado = service.converter(Decimal(50), "BRL", "USD")
 
-    assert resultado == Decimal("10")
+    assert resultado == Decimal(10)
+
+
+def test_obter_taxa_com_mesma_moeda_retorna_um_sem_chamar_o_client():
+    bcb_client = _BcbClientFalso(ptax=Decimal("5.00"))
+    service = BcbCambioService(bcb_client)
+
+    resultado = service.obter_taxa("BRL", "BRL")
+
+    assert resultado == Decimal(1)
+    assert bcb_client.chamadas == 0
 
 
 def test_obter_taxa_com_par_nao_suportado_lanca_moeda_nao_suportada():
@@ -65,4 +75,4 @@ def test_converter_propaga_bcb_indisponivel():
     service = BcbCambioService(bcb_client)
 
     with pytest.raises(BcbIndisponivelError):
-        service.converter(Decimal("10"), "USD", "BRL")
+        service.converter(Decimal(10), "USD", "BRL")
