@@ -24,3 +24,7 @@ class RegraNaoEncontradaError(Exception):
 
 class MoedaNaoSuportadaError(Exception):
     pass
+
+
+class AlertaNaoEncontradoError(Exception):
+    pass
