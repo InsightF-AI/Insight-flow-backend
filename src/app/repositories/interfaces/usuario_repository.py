@@ -1,0 +1,17 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from uuid import UUID
+
+from app.domain.entities.usuario import Usuario
+
+
+class UsuarioRepository(ABC):
+    @abstractmethod
+    def salvar(self, usuario: Usuario) -> None: ...
+
+    @abstractmethod
+    def buscar_por_id(self, id: UUID) -> Usuario | None: ...
+
+    @abstractmethod
+    def buscar_por_email(self, email: str) -> Usuario | None: ...
