@@ -13,12 +13,14 @@ from app.db.session import criar_session_factory
 from app.domain.entities.usuario import Usuario
 from app.integrations.bcb.client import BcbClient
 from app.integrations.brapi.client import BrapiClient
+from app.repositories.interfaces.alerta_repository import AlertaRepository
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.cotacao_repository import CotacaoRepository
 from app.repositories.interfaces.indicador_tecnico_repository import IndicadorTecnicoRepository
 from app.repositories.interfaces.sinal_repository import SinalRepository
 from app.repositories.interfaces.usuario_repository import UsuarioRepository
 from app.repositories.interfaces.watchlist_repository import WatchlistRepository
+from app.repositories.sqlalchemy.alerta_repository import SqlAlchemyAlertaRepository
 from app.repositories.sqlalchemy.ativo_repository import SqlAlchemyAtivoRepository
 from app.repositories.sqlalchemy.cotacao_repository import SqlAlchemyCotacaoRepository
 from app.repositories.sqlalchemy.indicador_tecnico_repository import (
@@ -27,6 +29,7 @@ from app.repositories.sqlalchemy.indicador_tecnico_repository import (
 from app.repositories.sqlalchemy.sinal_repository import SqlAlchemySinalRepository
 from app.repositories.sqlalchemy.usuario_repository import SqlAlchemyUsuarioRepository
 from app.repositories.sqlalchemy.watchlist_repository import SqlAlchemyWatchlistRepository
+from app.services.alerta_service import AlertaService
 from app.services.ativo_service import AtivoService
 from app.services.cached_cambio_service import CachedCambioService
 from app.services.cached_dados_mercado_service import CachedDadosMercadoService
@@ -95,6 +98,12 @@ def get_sinal_repository(
     session: Session = Depends(get_db_session),
 ) -> SinalRepository:
     return SqlAlchemySinalRepository(session)
+
+
+def get_alerta_repository(
+    session: Session = Depends(get_db_session),
+) -> AlertaRepository:
+    return SqlAlchemyAlertaRepository(session)
 
 
 @lru_cache
@@ -180,6 +189,17 @@ def get_watchlist_service(
     dados_mercado_service: DadosMercadoService = Depends(get_dados_mercado_service),
 ) -> WatchlistService:
     return WatchlistService(watchlist_repository, ativo_repository, dados_mercado_service)
+
+
+def get_alerta_service(
+    alerta_repository: AlertaRepository = Depends(get_alerta_repository),
+    ativo_repository: AtivoRepository = Depends(get_ativo_repository),
+    dados_mercado_service: DadosMercadoService = Depends(get_dados_mercado_service),
+    cambio_service: CambioService = Depends(get_cambio_service),
+) -> AlertaService:
+    return AlertaService(
+        alerta_repository, ativo_repository, dados_mercado_service, cambio_service
+    )
 
 
 def get_usuario_atual(
