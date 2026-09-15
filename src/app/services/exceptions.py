@@ -20,3 +20,7 @@ class AtivoNaoEncontradoError(Exception):
 
 class RegraNaoEncontradaError(Exception):
     pass
+
+
+class MoedaNaoSuportadaError(Exception):
+    pass
