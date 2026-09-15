@@ -11,6 +11,7 @@ from app.domain.enums.tipo_condicao_alerta import TipoCondicaoAlerta
 def _criar_alerta(
     tipo_condicao=TipoCondicaoAlerta.PRECO_MAIOR_IGUAL,
     valor_alvo=Decimal("40.00"),
+    moeda_alvo="BRL",
 ):
     return AlertaPersonalizado.criar(
         id=uuid4(),
@@ -18,6 +19,7 @@ def _criar_alerta(
         ativo_id=uuid4(),
         tipo_condicao=tipo_condicao,
         valor_alvo=valor_alvo,
+        moeda_alvo=moeda_alvo,
         criado_em=datetime(2026, 9, 8, 12, 0, 0, tzinfo=UTC),
     )
 
@@ -30,6 +32,7 @@ def test_criar_com_valor_alvo_zero_ou_negativo_levanta_erro():
             ativo_id=uuid4(),
             tipo_condicao=TipoCondicaoAlerta.PRECO_MAIOR_IGUAL,
             valor_alvo=Decimal(0),
+            moeda_alvo="BRL",
             criado_em=datetime(2026, 9, 8, 12, 0, 0, tzinfo=UTC),
         )
 

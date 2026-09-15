@@ -15,6 +15,7 @@ class AlertaPersonalizado:
     ativo_id: UUID
     tipo_condicao: TipoCondicaoAlerta
     valor_alvo: Decimal
+    moeda_alvo: str
     criado_em: datetime
     atualizado_em: datetime
     ativo: bool = True
@@ -28,6 +29,7 @@ class AlertaPersonalizado:
         ativo_id: UUID,
         tipo_condicao: TipoCondicaoAlerta,
         valor_alvo: Decimal,
+        moeda_alvo: str,
         criado_em: datetime,
     ) -> AlertaPersonalizado:
         if valor_alvo <= 0:
@@ -38,6 +40,7 @@ class AlertaPersonalizado:
             ativo_id=ativo_id,
             tipo_condicao=tipo_condicao,
             valor_alvo=valor_alvo,
+            moeda_alvo=moeda_alvo,
             criado_em=criado_em,
             atualizado_em=criado_em,
         )
