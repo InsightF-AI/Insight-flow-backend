@@ -6,7 +6,6 @@ import pytest
 
 from app.domain.enums.tipo_ativo import TipoAtivo
 from app.domain.enums.tipo_condicao_alerta import TipoCondicaoAlerta
-from app.integrations.bcb.client import BcbIndisponivelError
 from app.integrations.brapi.client import AtivoEncontrado
 from app.services.alerta_service import AlertaService
 from app.services.exceptions import AlertaNaoEncontradoError, AtivoNaoEncontradoError
@@ -181,6 +180,19 @@ def test_remover_alerta_inexistente_lanca_erro():
 
     with pytest.raises(AlertaNaoEncontradoError):
         service.remover_alerta(uuid4(), uuid4())
+
+
+def test_remover_alerta_de_outro_usuario_lanca_erro():
+    service = _service([_PETR4])
+    item = service.criar_alerta(
+        usuario_id=uuid4(),
+        ticker="PETR4",
+        tipo_condicao=TipoCondicaoAlerta.PRECO_MAIOR_IGUAL,
+        valor_alvo=Decimal("40.00"),
+    )
+
+    with pytest.raises(AlertaNaoEncontradoError):
+        service.remover_alerta(uuid4(), item.alerta.id)
 
 
 def test_avaliar_alertas_dispara_quando_preco_atinge_a_condicao():
