@@ -165,7 +165,10 @@ def test_universo_filtra_por_tipo_de_ativo():
 
 def test_ativo_so_com_alerta_nao_recalcula_indicadores():
     ativo = _ativo()
-    dados_mercado_service = FakeDadosMercadoService(cotacoes={"PETR4": _cotacao("PETR4", "40.00")})
+    dados_mercado_service = FakeDadosMercadoService(
+        cotacoes={"PETR4": _cotacao("PETR4", "40.00")},
+        historicos={"PETR4": _historico_rsi_baixo()},
+    )
     ciclo = _construir_ciclo(dados_mercado_service)
     ciclo.ativo_repository.salvar(ativo)
     ciclo.alerta_repository.salvar(_alerta(uuid4(), ativo.id))
