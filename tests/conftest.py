@@ -1,3 +1,3 @@
 import os
 
-os.environ.setdefault("SCHEDULER_HABILITADO", "false")
+os.environ["SCHEDULER_HABILITADO"] = "false"

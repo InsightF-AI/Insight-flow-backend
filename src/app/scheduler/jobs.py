@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from functools import lru_cache
+
 import httpx
 import redis
 from apscheduler.schedulers.background import BackgroundScheduler
+from sqlalchemy.orm import sessionmaker
 
 from app.core.config import Settings
 from app.db.session import criar_session_factory
@@ -49,8 +52,13 @@ def registrar_jobs(scheduler: BackgroundScheduler, settings: Settings) -> None:
     )
 
 
+@lru_cache
+def _session_factory(database_url: str) -> sessionmaker:
+    return criar_session_factory(database_url)
+
+
 def _executar_ciclo(settings: Settings, tipos_ativo: set[TipoAtivo]) -> None:
-    session = criar_session_factory(settings.database_url)()
+    session = _session_factory(settings.database_url)()
     try:
         cache = RedisMercadoCache(redis.Redis.from_url(settings.redis_url))
         brapi_client = BrapiClient(
@@ -90,7 +98,9 @@ def _executar_ciclo(settings: Settings, tipos_ativo: set[TipoAtivo]) -> None:
             sinal_repository,
             dados_mercado_service,
             AtivoService(ativo_repository, dados_mercado_service, cotacao_repository),
-            AlertaService(alerta_repository, ativo_repository, dados_mercado_service, cambio_service),
+            AlertaService(
+                alerta_repository, ativo_repository, dados_mercado_service, cambio_service
+            ),
             SinalService(ativo_repository, cotacao_repository, indicador_service, sinal_repository),
             NotificacaoService(notificacao_repository),
         )
