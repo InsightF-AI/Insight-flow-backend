@@ -79,7 +79,7 @@ def test_enviar_alerta_personalizado_persiste_notificacao_de_alerta_disparado():
         variacao_percentual=Decimal("1.25"),
         maxima_dia=Decimal("41.00"),
         minima_dia=Decimal("39.50"),
-        volume=Decimal("1000000"),
+        volume=Decimal(1000000),
     )
 
     notificacao = service.enviar_alerta_personalizado(alerta.usuario_id, alerta, cotacao)

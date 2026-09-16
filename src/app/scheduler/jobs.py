@@ -57,15 +57,30 @@ def _session_factory(database_url: str) -> sessionmaker:
     return criar_session_factory(database_url)
 
 
+@lru_cache
+def _brapi_http_client(base_url: str) -> httpx.Client:
+    return httpx.Client(base_url=base_url, timeout=10.0)
+
+
+@lru_cache
+def _bcb_http_client(base_url: str) -> httpx.Client:
+    return httpx.Client(base_url=base_url, timeout=10.0)
+
+
+@lru_cache
+def _redis_client(redis_url: str) -> redis.Redis:
+    return redis.Redis.from_url(redis_url)
+
+
 def _executar_ciclo(settings: Settings, tipos_ativo: set[TipoAtivo]) -> None:
     session = _session_factory(settings.database_url)()
     try:
-        cache = RedisMercadoCache(redis.Redis.from_url(settings.redis_url))
+        cache = RedisMercadoCache(_redis_client(settings.redis_url))
         brapi_client = BrapiClient(
-            httpx.Client(base_url=settings.brapi_base_url, timeout=10.0),
+            _brapi_http_client(settings.brapi_base_url),
             settings.brapi_api_key or None,
         )
-        bcb_client = BcbClient(httpx.Client(base_url=settings.bcb_base_url, timeout=10.0))
+        bcb_client = BcbClient(_bcb_http_client(settings.bcb_base_url))
 
         ativo_repository = SqlAlchemyAtivoRepository(session)
         watchlist_repository = SqlAlchemyWatchlistRepository(session)
@@ -103,6 +118,7 @@ def _executar_ciclo(settings: Settings, tipos_ativo: set[TipoAtivo]) -> None:
             ),
             SinalService(ativo_repository, cotacao_repository, indicador_service, sinal_repository),
             NotificacaoService(notificacao_repository),
+            ao_falhar_ativo=session.rollback,
         )
     finally:
         session.close()

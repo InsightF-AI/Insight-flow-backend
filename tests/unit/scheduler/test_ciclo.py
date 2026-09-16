@@ -268,3 +268,33 @@ def test_falha_em_um_ativo_nao_impede_processamento_dos_demais():
     _executar(ciclo, {TipoAtivo.ACAO})
 
     assert len(ciclo.notificacao_repository.listar_por_usuario(usuario_ok)) == 1
+
+
+def test_falha_em_ativo_invoca_callback_ao_falhar_ativo():
+    ativo_sem_cotacao = _ativo("VALE3")
+    dados_mercado_service = FakeDadosMercadoService()
+    ciclo = _construir_ciclo(dados_mercado_service)
+    ciclo.ativo_repository.salvar(ativo_sem_cotacao)
+    ciclo.alerta_repository.salvar(_alerta(uuid4(), ativo_sem_cotacao.id))
+
+    chamadas = 0
+
+    def _ao_falhar_ativo() -> None:
+        nonlocal chamadas
+        chamadas += 1
+
+    executar_ciclo_monitoramento(
+        {TipoAtivo.ACAO},
+        ciclo.ativo_repository,
+        ciclo.watchlist_repository,
+        ciclo.alerta_repository,
+        ciclo.sinal_repository,
+        ciclo.dados_mercado_service,
+        ciclo.ativo_service,
+        ciclo.alerta_service,
+        ciclo.sinal_service,
+        ciclo.notificacao_service,
+        ao_falhar_ativo=_ao_falhar_ativo,
+    )
+
+    assert chamadas == 1

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from uuid import UUID
 
 from app.domain.entities.ativo import Ativo
@@ -30,6 +31,7 @@ def executar_ciclo_monitoramento(
     alerta_service: AlertaService,
     sinal_service: SinalService,
     notificacao_service: NotificacaoService,
+    ao_falhar_ativo: Callable[[], None] | None = None,
 ) -> None:
     ids_com_watchlist = set(watchlist_repository.listar_ativos_distintos_ativos())
     ids_com_alerta = set(alerta_repository.listar_ativos_distintos_com_alerta_ativo())
@@ -56,6 +58,8 @@ def executar_ciclo_monitoramento(
             logger.warning(
                 "Falha ao processar ativo %s no ciclo de monitoramento.", ativo_id, exc_info=True
             )
+            if ao_falhar_ativo is not None:
+                ao_falhar_ativo()
 
 
 def _processar_ativo(

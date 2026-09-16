@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
         scheduler.start()
     yield
     if settings.scheduler_habilitado:
-        scheduler.shutdown()
+        scheduler.shutdown(wait=False)
 
 
 app = FastAPI(title="InsightFlow AI - Backend", lifespan=lifespan)

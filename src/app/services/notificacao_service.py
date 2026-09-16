@@ -42,7 +42,7 @@ class NotificacaoService:
     def enviar_alerta_personalizado(
         self, usuario_id: UUID, alerta: AlertaPersonalizado, cotacao: CotacaoAtual
     ) -> Notificacao:
-        condicao_texto = _CONDICAO_TEXTO[alerta.tipo_condicao]
+        condicao_texto = _CONDICAO_TEXTO.get(alerta.tipo_condicao, "condicao atingida")
         mensagem = (
             f"{cotacao.ticker} atingiu o alvo de {alerta.valor_alvo} {alerta.moeda_alvo} "
             f"({condicao_texto})"

@@ -40,7 +40,9 @@ class SqlAlchemyNotificacaoRepository(NotificacaoRepository):
         filtros = [NotificacaoModel.usuario_id == usuario_id]
         if apenas_nao_lidas:
             filtros.append(NotificacaoModel.lida.is_(False))
-        modelos = self._session.scalars(select(NotificacaoModel).where(*filtros))
+        modelos = self._session.scalars(
+            select(NotificacaoModel).where(*filtros).order_by(NotificacaoModel.criado_em.desc())
+        )
         return [self._para_entidade(modelo) for modelo in modelos]
 
     @staticmethod
