@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     cache_ttl_cambio_segundos: int = 21600
     cache_ttl_cambio_fallback_segundos: int = 2592000
 
+    scheduler_habilitado: bool = True
+    scheduler_intervalo_renda_variavel_minutos: int = 15
+    scheduler_intervalo_cripto_minutos: int = 5
+
 
 @lru_cache
 def get_settings() -> Settings:

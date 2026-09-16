@@ -1,0 +1,98 @@
+from __future__ import annotations
+
+import httpx
+import redis
+from apscheduler.schedulers.background import BackgroundScheduler
+
+from app.core.config import Settings
+from app.db.session import criar_session_factory
+from app.domain.enums.tipo_ativo import TipoAtivo
+from app.integrations.bcb.client import BcbClient
+from app.integrations.brapi.client import BrapiClient
+from app.repositories.sqlalchemy.alerta_repository import SqlAlchemyAlertaRepository
+from app.repositories.sqlalchemy.ativo_repository import SqlAlchemyAtivoRepository
+from app.repositories.sqlalchemy.cotacao_repository import SqlAlchemyCotacaoRepository
+from app.repositories.sqlalchemy.indicador_tecnico_repository import (
+    SqlAlchemyIndicadorTecnicoRepository,
+)
+from app.repositories.sqlalchemy.notificacao_repository import SqlAlchemyNotificacaoRepository
+from app.repositories.sqlalchemy.sinal_repository import SqlAlchemySinalRepository
+from app.repositories.sqlalchemy.watchlist_repository import SqlAlchemyWatchlistRepository
+from app.scheduler.ciclo import executar_ciclo_monitoramento
+from app.services.alerta_service import AlertaService
+from app.services.ativo_service import AtivoService
+from app.services.cached_cambio_service import CachedCambioService
+from app.services.cached_dados_mercado_service import CachedDadosMercadoService
+from app.services.cambio_service import BcbCambioService
+from app.services.dados_mercado_service import DadosMercadoService
+from app.services.indicador_service import IndicadorService
+from app.services.notificacao_service import NotificacaoService
+from app.services.redis_mercado_cache import RedisMercadoCache
+from app.services.sinal_service import SinalService
+
+_RENDA_VARIAVEL = {TipoAtivo.ACAO, TipoAtivo.FII, TipoAtivo.ETF, TipoAtivo.BDR}
+_CRIPTO = {TipoAtivo.CRIPTO}
+
+
+def registrar_jobs(scheduler: BackgroundScheduler, settings: Settings) -> None:
+    scheduler.add_job(
+        lambda: _executar_ciclo(settings, _RENDA_VARIAVEL),
+        "interval",
+        minutes=settings.scheduler_intervalo_renda_variavel_minutos,
+        id="ciclo_renda_variavel",
+    )
+    scheduler.add_job(
+        lambda: _executar_ciclo(settings, _CRIPTO),
+        "interval",
+        minutes=settings.scheduler_intervalo_cripto_minutos,
+        id="ciclo_cripto",
+    )
+
+
+def _executar_ciclo(settings: Settings, tipos_ativo: set[TipoAtivo]) -> None:
+    session = criar_session_factory(settings.database_url)()
+    try:
+        cache = RedisMercadoCache(redis.Redis.from_url(settings.redis_url))
+        brapi_client = BrapiClient(
+            httpx.Client(base_url=settings.brapi_base_url, timeout=10.0),
+            settings.brapi_api_key or None,
+        )
+        bcb_client = BcbClient(httpx.Client(base_url=settings.bcb_base_url, timeout=10.0))
+
+        ativo_repository = SqlAlchemyAtivoRepository(session)
+        watchlist_repository = SqlAlchemyWatchlistRepository(session)
+        alerta_repository = SqlAlchemyAlertaRepository(session)
+        sinal_repository = SqlAlchemySinalRepository(session)
+        cotacao_repository = SqlAlchemyCotacaoRepository(session)
+        indicador_repository = SqlAlchemyIndicadorTecnicoRepository(session)
+        notificacao_repository = SqlAlchemyNotificacaoRepository(session)
+
+        dados_mercado_service = CachedDadosMercadoService(
+            DadosMercadoService(brapi_client),
+            cache,
+            ttl_cotacao_atual=settings.cache_ttl_cotacao_atual_segundos,
+        )
+        cambio_service = CachedCambioService(
+            BcbCambioService(bcb_client),
+            cache,
+            ttl_segundos=settings.cache_ttl_cambio_segundos,
+            ttl_fallback_segundos=settings.cache_ttl_cambio_fallback_segundos,
+        )
+        indicador_service = IndicadorService(
+            ativo_repository, cotacao_repository, indicador_repository
+        )
+
+        executar_ciclo_monitoramento(
+            tipos_ativo,
+            ativo_repository,
+            watchlist_repository,
+            alerta_repository,
+            sinal_repository,
+            dados_mercado_service,
+            AtivoService(ativo_repository, dados_mercado_service, cotacao_repository),
+            AlertaService(alerta_repository, ativo_repository, dados_mercado_service, cambio_service),
+            SinalService(ativo_repository, cotacao_repository, indicador_service, sinal_repository),
+            NotificacaoService(notificacao_repository),
+        )
+    finally:
+        session.close()
