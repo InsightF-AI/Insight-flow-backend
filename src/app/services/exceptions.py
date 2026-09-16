@@ -28,3 +28,7 @@ class MoedaNaoSuportadaError(Exception):
 
 class AlertaNaoEncontradoError(Exception):
     pass
+
+
+class NotificacaoNaoEncontradaError(Exception):
+    pass

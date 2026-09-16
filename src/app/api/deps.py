@@ -17,6 +17,7 @@ from app.repositories.interfaces.alerta_repository import AlertaRepository
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.cotacao_repository import CotacaoRepository
 from app.repositories.interfaces.indicador_tecnico_repository import IndicadorTecnicoRepository
+from app.repositories.interfaces.notificacao_repository import NotificacaoRepository
 from app.repositories.interfaces.sinal_repository import SinalRepository
 from app.repositories.interfaces.usuario_repository import UsuarioRepository
 from app.repositories.interfaces.watchlist_repository import WatchlistRepository
@@ -26,6 +27,7 @@ from app.repositories.sqlalchemy.cotacao_repository import SqlAlchemyCotacaoRepo
 from app.repositories.sqlalchemy.indicador_tecnico_repository import (
     SqlAlchemyIndicadorTecnicoRepository,
 )
+from app.repositories.sqlalchemy.notificacao_repository import SqlAlchemyNotificacaoRepository
 from app.repositories.sqlalchemy.sinal_repository import SqlAlchemySinalRepository
 from app.repositories.sqlalchemy.usuario_repository import SqlAlchemyUsuarioRepository
 from app.repositories.sqlalchemy.watchlist_repository import SqlAlchemyWatchlistRepository
@@ -37,6 +39,7 @@ from app.services.cambio_service import BcbCambioService, CambioService
 from app.services.dados_mercado_service import DadosMercadoService
 from app.services.indicador_service import IndicadorService
 from app.services.mercado_cache import MercadoCache
+from app.services.notificacao_service import NotificacaoService
 from app.services.redis_mercado_cache import RedisMercadoCache
 from app.services.sinal_service import SinalService
 from app.services.usuario_service import UsuarioService
@@ -104,6 +107,12 @@ def get_alerta_repository(
     session: Session = Depends(get_db_session),
 ) -> AlertaRepository:
     return SqlAlchemyAlertaRepository(session)
+
+
+def get_notificacao_repository(
+    session: Session = Depends(get_db_session),
+) -> NotificacaoRepository:
+    return SqlAlchemyNotificacaoRepository(session)
 
 
 @lru_cache
@@ -200,6 +209,12 @@ def get_alerta_service(
     return AlertaService(
         alerta_repository, ativo_repository, dados_mercado_service, cambio_service
     )
+
+
+def get_notificacao_service(
+    notificacao_repository: NotificacaoRepository = Depends(get_notificacao_repository),
+) -> NotificacaoService:
+    return NotificacaoService(notificacao_repository)
 
 
 def get_usuario_atual(
