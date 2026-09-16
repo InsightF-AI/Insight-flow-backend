@@ -142,3 +142,75 @@ def test_salvar_mesmo_usuario_e_ativo_duas_vezes_viola_constraint_unica(session)
                 adicionado_em=datetime(2026, 9, 9, 10, 0, 0, tzinfo=UTC),
             )
         )
+
+
+def test_listar_ativos_distintos_ativos_retorna_ids_sem_repetir(session):
+    usuario = _novo_usuario(session)
+    outro_usuario = _novo_usuario(session)
+    ativo = _novo_ativo(session)
+    outro_ativo = _novo_ativo(session, ticker="VALE3")
+    repo = SqlAlchemyWatchlistRepository(session)
+    repo.salvar(
+        Watchlist.adicionar(
+            id=uuid4(),
+            usuario_id=usuario.id,
+            ativo_id=ativo.id,
+            adicionado_em=datetime(2026, 9, 9, 10, 0, 0, tzinfo=UTC),
+        )
+    )
+    repo.salvar(
+        Watchlist.adicionar(
+            id=uuid4(),
+            usuario_id=outro_usuario.id,
+            ativo_id=ativo.id,
+            adicionado_em=datetime(2026, 9, 9, 10, 0, 0, tzinfo=UTC),
+        )
+    )
+    repo.salvar(
+        Watchlist.adicionar(
+            id=uuid4(),
+            usuario_id=usuario.id,
+            ativo_id=outro_ativo.id,
+            adicionado_em=datetime(2026, 9, 9, 10, 0, 0, tzinfo=UTC),
+        )
+    )
+
+    ids = repo.listar_ativos_distintos_ativos()
+
+    assert set(ids) == {ativo.id, outro_ativo.id}
+
+
+def test_listar_por_ativo_retorna_todas_as_entradas_do_ativo(session):
+    usuario = _novo_usuario(session)
+    outro_usuario = _novo_usuario(session)
+    ativo = _novo_ativo(session)
+    outro_ativo = _novo_ativo(session, ticker="VALE3")
+    repo = SqlAlchemyWatchlistRepository(session)
+    repo.salvar(
+        Watchlist.adicionar(
+            id=uuid4(),
+            usuario_id=usuario.id,
+            ativo_id=ativo.id,
+            adicionado_em=datetime(2026, 9, 9, 10, 0, 0, tzinfo=UTC),
+        )
+    )
+    repo.salvar(
+        Watchlist.adicionar(
+            id=uuid4(),
+            usuario_id=outro_usuario.id,
+            ativo_id=ativo.id,
+            adicionado_em=datetime(2026, 9, 9, 10, 0, 0, tzinfo=UTC),
+        )
+    )
+    repo.salvar(
+        Watchlist.adicionar(
+            id=uuid4(),
+            usuario_id=usuario.id,
+            ativo_id=outro_ativo.id,
+            adicionado_em=datetime(2026, 9, 9, 10, 0, 0, tzinfo=UTC),
+        )
+    )
+
+    itens = repo.listar_por_ativo(ativo.id)
+
+    assert {item.usuario_id for item in itens} == {usuario.id, outro_usuario.id}
