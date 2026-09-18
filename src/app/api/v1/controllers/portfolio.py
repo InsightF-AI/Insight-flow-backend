@@ -66,6 +66,8 @@ def remover_operacao(
         service.remover_operacao(usuario.id, operacao_id)
     except OperacaoNaoEncontradaError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Operacao nao encontrada") from exc
+    except QuantidadeInsuficienteError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 
 
 @router.get("/portfolio/posicoes", response_model=list[PosicaoResponse])
