@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import httpx
@@ -38,7 +38,7 @@ class BcbClient:
         )
         return [
             PontoCdi(
-                data=datetime.strptime(item["data"], "%d/%m/%Y").date(),
+                data=datetime.strptime(item["data"], "%d/%m/%Y").replace(tzinfo=UTC).date(),
                 valor=Decimal(item["valor"]),
             )
             for item in dados

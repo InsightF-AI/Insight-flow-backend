@@ -7,10 +7,10 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 from app.domain.entities.operacao import Operacao
-from app.domain.enums.tipo_operacao import TipoOperacao
-from app.domain.enums.tipo_ativo import TipoAtivo
 from app.domain.enums.periodo_historico import PeriodoHistorico
+from app.domain.enums.tipo_ativo import TipoAtivo
 from app.domain.enums.tipo_benchmark import TipoBenchmark
+from app.domain.enums.tipo_operacao import TipoOperacao
 from app.domain.value_objects.comparativo import Comparativo
 from app.domain.value_objects.distribuicao import Distribuicao
 from app.domain.value_objects.posicao import Posicao
@@ -84,22 +84,12 @@ class PortfolioService:
             raise OperacaoInvalidaError("quantidade deve ser maior que zero")
         if preco_unitario <= 0:
             raise OperacaoInvalidaError("preco_unitario deve ser maior que zero")
-        if data > date.today():
+        if data > datetime.now(UTC).date():
             raise OperacaoInvalidaError("data nao pode ser futura")
 
         ativo = self._ativo_repository.buscar_por_id(ativo_id)
         if ativo is None:
             raise AtivoNaoEncontradoError(ativo_id)
-
-        if tipo == TipoOperacao.VENDA:
-            operacoes_existentes = [
-                op
-                for op in self._operacao_repository.listar_por_usuario(usuario_id)
-                if op.ativo_id == ativo_id
-            ]
-            estado = replay_operacoes(operacoes_existentes)
-            if quantidade > estado.quantidade:
-                raise QuantidadeInsuficienteError(ativo_id)
 
         operacao = Operacao(
             id=uuid4(),
@@ -111,6 +101,15 @@ class PortfolioService:
             data=data,
             criado_em=datetime.now(UTC),
         )
+
+        if tipo == TipoOperacao.VENDA:
+            operacoes_existentes = [
+                op
+                for op in self._operacao_repository.listar_por_usuario(usuario_id)
+                if op.ativo_id == ativo_id
+            ]
+            replay_operacoes([*operacoes_existentes, operacao])
+
         self._operacao_repository.salvar(operacao)
         return operacao
 
@@ -119,6 +118,12 @@ class PortfolioService:
 
     def remover_operacao(self, usuario_id: UUID, operacao_id: UUID) -> None:
         operacao = self._buscar_operacao(usuario_id, operacao_id)
+        operacoes_restantes = [
+            op
+            for op in self._operacao_repository.listar_por_usuario(usuario_id)
+            if op.ativo_id == operacao.ativo_id and op.id != operacao.id
+        ]
+        replay_operacoes(operacoes_restantes)
         self._operacao_repository.remover(operacao)
 
     def posicoes(self, usuario_id: UUID) -> list[Posicao]:
@@ -234,9 +239,12 @@ class PortfolioService:
 
     def _rentabilidade_cdi(self, data_inicio: date) -> Decimal | None:
         try:
-            pontos = self._bcb_client.buscar_serie_cdi(data_inicio, date.today())
+            pontos = self._bcb_client.buscar_serie_cdi(data_inicio, datetime.now(UTC).date())
         except BcbIndisponivelError:
             logger.warning("CDI indisponivel; comparativo de benchmark sem CDI.")
+            return None
+
+        if not pontos:
             return None
 
         fator = Decimal(1)
@@ -259,10 +267,16 @@ class PortfolioService:
         operacoes_por_ativo: dict[UUID, list[Operacao]] = {}
         for operacao in self._operacao_repository.listar_por_usuario(usuario_id):
             operacoes_por_ativo.setdefault(operacao.ativo_id, []).append(operacao)
-        return {
-            ativo_id: replay_operacoes(operacoes)
-            for ativo_id, operacoes in operacoes_por_ativo.items()
-        }
+        estados: dict[UUID, EstadoPosicao] = {}
+        for ativo_id, operacoes in operacoes_por_ativo.items():
+            try:
+                estados[ativo_id] = replay_operacoes(operacoes)
+            except QuantidadeInsuficienteError:
+                logger.warning(
+                    "Sequencia de operacoes inconsistente para o ativo %s; ativo omitido.",
+                    ativo_id,
+                )
+        return estados
 
     def _buscar_operacao(self, usuario_id: UUID, operacao_id: UUID) -> Operacao:
         operacao = self._operacao_repository.buscar_por_id(operacao_id)
@@ -272,7 +286,7 @@ class PortfolioService:
 
 
 def _periodo_desde(data_inicio: date) -> PeriodoHistorico:
-    dias = (date.today() - data_inicio).days
+    dias = (datetime.now(UTC).date() - data_inicio).days
     if dias <= 1:
         return PeriodoHistorico.UM_DIA
     if dias <= 7:

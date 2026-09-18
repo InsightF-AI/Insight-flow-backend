@@ -48,7 +48,7 @@ def _nova_operacao(usuario_id, ativo_id, tipo=TipoOperacao.COMPRA) -> Operacao:
         usuario_id=usuario_id,
         ativo_id=ativo_id,
         tipo=tipo,
-        quantidade=Decimal("10"),
+        quantidade=Decimal(10),
         preco_unitario=Decimal("30.00"),
         data=date(2026, 9, 1),
         criado_em=datetime(2026, 9, 1, 10, 0, 0, tzinfo=UTC),
@@ -68,7 +68,7 @@ def test_salvar_e_buscar_por_id_retorna_a_operacao_criada(session):
     assert encontrada.usuario_id == usuario.id
     assert encontrada.ativo_id == ativo.id
     assert encontrada.tipo == TipoOperacao.COMPRA
-    assert encontrada.quantidade == Decimal("10")
+    assert encontrada.quantidade == Decimal(10)
     assert encontrada.preco_unitario == Decimal("30.00")
     assert encontrada.data == date(2026, 9, 1)
 

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -6,15 +8,20 @@ from app.api.deps import (
     get_cotacao_repository,
     get_dados_mercado_service,
     get_indicador_tecnico_repository,
+    get_operacao_repository,
+    get_portfolio_service,
     get_sinal_repository,
     get_usuario_repository,
     get_watchlist_repository,
 )
 from app.main import app
+from app.services.portfolio_service import PortfolioService
 from tests.fixtures.fake_ativo_repository import FakeAtivoRepository
+from tests.fixtures.fake_cambio_service import FakeCambioService
 from tests.fixtures.fake_cotacao_repository import FakeCotacaoRepository
 from tests.fixtures.fake_dados_mercado_service import FakeDadosMercadoService
 from tests.fixtures.fake_indicador_tecnico_repository import FakeIndicadorTecnicoRepository
+from tests.fixtures.fake_operacao_repository import FakeOperacaoRepository
 from tests.fixtures.fake_sinal_repository import FakeSinalRepository
 from tests.fixtures.fake_usuario_repository import FakeUsuarioRepository
 from tests.fixtures.fake_watchlist_repository import FakeWatchlistRepository
@@ -51,6 +58,11 @@ def sinal_repository() -> FakeSinalRepository:
 
 
 @pytest.fixture
+def operacao_repository() -> FakeOperacaoRepository:
+    return FakeOperacaoRepository()
+
+
+@pytest.fixture
 def catalogo_brapi() -> list:
     return []
 
@@ -81,6 +93,7 @@ def client(
     cotacao_repository: FakeCotacaoRepository,
     indicador_repository: FakeIndicadorTecnicoRepository,
     sinal_repository: FakeSinalRepository,
+    operacao_repository: FakeOperacaoRepository,
 ) -> TestClient:
     app.dependency_overrides[get_usuario_repository] = lambda: usuario_repository
     app.dependency_overrides[get_ativo_repository] = lambda: ativo_repository
@@ -89,6 +102,14 @@ def client(
     app.dependency_overrides[get_cotacao_repository] = lambda: cotacao_repository
     app.dependency_overrides[get_indicador_tecnico_repository] = lambda: indicador_repository
     app.dependency_overrides[get_sinal_repository] = lambda: sinal_repository
+    app.dependency_overrides[get_operacao_repository] = lambda: operacao_repository
+    app.dependency_overrides[get_portfolio_service] = lambda: PortfolioService(
+        operacao_repository,
+        ativo_repository,
+        dados_mercado_service,
+        FakeCambioService(taxa=Decimal(1)),
+        None,
+    )
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
