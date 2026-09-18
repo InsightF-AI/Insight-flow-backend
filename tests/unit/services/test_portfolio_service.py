@@ -610,3 +610,136 @@ def test_distribuicao_sem_posicoes_retorna_dicionarios_vazios():
     assert distribuicao.por_classe == {}
     assert distribuicao.por_setor == {}
     assert distribuicao.por_moeda == {}
+
+
+from app.domain.enums.tipo_benchmark import TipoBenchmark
+from app.integrations.bcb.client import BcbIndisponivelError, PontoCdi
+from app.services.exceptions import PortfolioVazioError
+from app.integrations.brapi.client import PontoHistorico
+
+
+class _FakeBcbClient:
+    def __init__(self, pontos: list[PontoCdi] | None = None, indisponivel: bool = False):
+        self._pontos = pontos if pontos is not None else []
+        self.indisponivel = indisponivel
+
+    def buscar_serie_cdi(self, inicio, fim) -> list[PontoCdi]:
+        if self.indisponivel:
+            raise BcbIndisponivelError
+        return self._pontos
+
+
+def _service_com_benchmark(bcb_client, historicos=None) -> PortfolioService:
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_PETR4)
+    return PortfolioService(
+        FakeOperacaoRepository(),
+        ativo_repository,
+        FakeDadosMercadoService(
+            cotacoes={"PETR4": _cotacao("50.00")}, historicos=historicos or {}
+        ),
+        FakeCambioService(taxa=Decimal("1")),
+        bcb_client=bcb_client,
+    )
+
+
+def test_comparativo_benchmark_sem_operacoes_lanca_erro():
+    service = _service_com_benchmark(_FakeBcbClient())
+
+    with pytest.raises(PortfolioVazioError):
+        service.comparativo_benchmark(uuid4(), TipoBenchmark.CDI)
+
+
+def test_comparativo_benchmark_cdi_compoe_taxa_diaria():
+    bcb_client = _FakeBcbClient(
+        pontos=[
+            PontoCdi(data=date(2026, 9, 1), valor=Decimal("0.05")),
+            PontoCdi(data=date(2026, 9, 2), valor=Decimal("0.05")),
+        ]
+    )
+    service = _service_com_benchmark(bcb_client)
+    usuario_id = uuid4()
+    service.registrar_operacao(
+        usuario_id=usuario_id,
+        ativo_id=_PETR4.id,
+        tipo=TipoOperacao.COMPRA,
+        quantidade=Decimal("10"),
+        preco_unitario=Decimal("30.00"),
+        data=date(2026, 9, 1),
+    )
+
+    comparativo = service.comparativo_benchmark(usuario_id, TipoBenchmark.CDI)
+
+    taxa_esperada = (Decimal("1.0005") * Decimal("1.0005")) - Decimal("1")
+    assert comparativo.benchmark == TipoBenchmark.CDI
+    assert comparativo.rentabilidade_benchmark_percentual == taxa_esperada
+
+
+def test_comparativo_benchmark_cdi_indisponivel_retorna_none():
+    service = _service_com_benchmark(_FakeBcbClient(indisponivel=True))
+    usuario_id = uuid4()
+    service.registrar_operacao(
+        usuario_id=usuario_id,
+        ativo_id=_PETR4.id,
+        tipo=TipoOperacao.COMPRA,
+        quantidade=Decimal("10"),
+        preco_unitario=Decimal("30.00"),
+        data=date(2026, 9, 1),
+    )
+
+    comparativo = service.comparativo_benchmark(usuario_id, TipoBenchmark.CDI)
+
+    assert comparativo.rentabilidade_benchmark_percentual is None
+    assert comparativo.rentabilidade_carteira_percentual is not None
+
+
+def test_comparativo_benchmark_ibovespa_usa_variacao_do_historico():
+    historico = [
+        PontoHistorico(
+            data=datetime(2026, 9, 1, tzinfo=UTC),
+            abertura=Decimal("100"),
+            maxima=Decimal("100"),
+            minima=Decimal("100"),
+            fechamento=Decimal("100"),
+            volume=Decimal("0"),
+        ),
+        PontoHistorico(
+            data=datetime(2026, 9, 10, tzinfo=UTC),
+            abertura=Decimal("110"),
+            maxima=Decimal("110"),
+            minima=Decimal("110"),
+            fechamento=Decimal("110"),
+            volume=Decimal("0"),
+        ),
+    ]
+    service = _service_com_benchmark(_FakeBcbClient(), historicos={"^BVSP": historico})
+    usuario_id = uuid4()
+    service.registrar_operacao(
+        usuario_id=usuario_id,
+        ativo_id=_PETR4.id,
+        tipo=TipoOperacao.COMPRA,
+        quantidade=Decimal("10"),
+        preco_unitario=Decimal("30.00"),
+        data=date(2026, 9, 1),
+    )
+
+    comparativo = service.comparativo_benchmark(usuario_id, TipoBenchmark.IBOVESPA)
+
+    assert comparativo.rentabilidade_benchmark_percentual == Decimal("0.10")
+
+
+def test_comparativo_benchmark_ibovespa_indisponivel_retorna_none():
+    service = _service_com_benchmark(_FakeBcbClient(), historicos={})
+    usuario_id = uuid4()
+    service.registrar_operacao(
+        usuario_id=usuario_id,
+        ativo_id=_PETR4.id,
+        tipo=TipoOperacao.COMPRA,
+        quantidade=Decimal("10"),
+        preco_unitario=Decimal("30.00"),
+        data=date(2026, 9, 1),
+    )
+
+    comparativo = service.comparativo_benchmark(usuario_id, TipoBenchmark.IBOVESPA)
+
+    assert comparativo.rentabilidade_benchmark_percentual is None

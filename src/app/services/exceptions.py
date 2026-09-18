@@ -44,3 +44,7 @@ class OperacaoInvalidaError(Exception):
 
 class OperacaoNaoEncontradaError(Exception):
     pass
+
+
+class PortfolioVazioError(Exception):
+    pass

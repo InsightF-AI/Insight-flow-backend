@@ -9,10 +9,13 @@ from uuid import UUID, uuid4
 from app.domain.entities.operacao import Operacao
 from app.domain.enums.tipo_operacao import TipoOperacao
 from app.domain.enums.tipo_ativo import TipoAtivo
+from app.domain.enums.periodo_historico import PeriodoHistorico
+from app.domain.enums.tipo_benchmark import TipoBenchmark
+from app.domain.value_objects.comparativo import Comparativo
 from app.domain.value_objects.distribuicao import Distribuicao
 from app.domain.value_objects.posicao import Posicao
 from app.domain.value_objects.rentabilidade import Rentabilidade
-from app.integrations.bcb.client import BcbClient
+from app.integrations.bcb.client import BcbClient, BcbIndisponivelError
 from app.integrations.brapi.client import BrapiIndisponivelError, TickerNaoEncontradoError
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.operacao_repository import OperacaoRepository
@@ -22,6 +25,7 @@ from app.services.exceptions import (
     AtivoNaoEncontradoError,
     OperacaoInvalidaError,
     OperacaoNaoEncontradaError,
+    PortfolioVazioError,
     QuantidadeInsuficienteError,
 )
 
@@ -209,6 +213,48 @@ class PortfolioService:
 
         return Distribuicao(por_classe=por_classe, por_setor=por_setor, por_moeda=por_moeda)
 
+    def comparativo_benchmark(self, usuario_id: UUID, benchmark: TipoBenchmark) -> Comparativo:
+        operacoes = self._operacao_repository.listar_por_usuario(usuario_id)
+        if not operacoes:
+            raise PortfolioVazioError(usuario_id)
+
+        data_inicio = min(op.data for op in operacoes)
+        rentabilidade_carteira = self.rentabilidade(usuario_id).percentual
+
+        if benchmark == TipoBenchmark.CDI:
+            rentabilidade_benchmark = self._rentabilidade_cdi(data_inicio)
+        else:
+            rentabilidade_benchmark = self._rentabilidade_ibovespa(data_inicio)
+
+        return Comparativo(
+            benchmark=benchmark,
+            rentabilidade_carteira_percentual=rentabilidade_carteira,
+            rentabilidade_benchmark_percentual=rentabilidade_benchmark,
+        )
+
+    def _rentabilidade_cdi(self, data_inicio: date) -> Decimal | None:
+        try:
+            pontos = self._bcb_client.buscar_serie_cdi(data_inicio, date.today())
+        except BcbIndisponivelError:
+            logger.warning("CDI indisponivel; comparativo de benchmark sem CDI.")
+            return None
+
+        fator = Decimal(1)
+        for ponto in pontos:
+            fator *= Decimal(1) + ponto.valor / Decimal(100)
+        return fator - Decimal(1)
+
+    def _rentabilidade_ibovespa(self, data_inicio: date) -> Decimal | None:
+        periodo = _periodo_desde(data_inicio)
+        try:
+            pontos = self._dados_mercado_service.buscar_historico("^BVSP", periodo)
+        except (BrapiIndisponivelError, TickerNaoEncontradoError):
+            logger.warning("Ibovespa indisponivel; comparativo de benchmark sem Ibovespa.")
+            return None
+        if not pontos:
+            return None
+        return (pontos[-1].fechamento - pontos[0].fechamento) / pontos[0].fechamento
+
     def _replay_por_ativo(self, usuario_id: UUID) -> dict[UUID, EstadoPosicao]:
         operacoes_por_ativo: dict[UUID, list[Operacao]] = {}
         for operacao in self._operacao_repository.listar_por_usuario(usuario_id):
@@ -223,3 +269,18 @@ class PortfolioService:
         if operacao is None or operacao.usuario_id != usuario_id:
             raise OperacaoNaoEncontradaError(operacao_id)
         return operacao
+
+
+def _periodo_desde(data_inicio: date) -> PeriodoHistorico:
+    dias = (date.today() - data_inicio).days
+    if dias <= 1:
+        return PeriodoHistorico.UM_DIA
+    if dias <= 7:
+        return PeriodoHistorico.UMA_SEMANA
+    if dias <= 30:
+        return PeriodoHistorico.UM_MES
+    if dias <= 90:
+        return PeriodoHistorico.TRES_MESES
+    if dias <= 365:
+        return PeriodoHistorico.UM_ANO
+    return PeriodoHistorico.CINCO_ANOS
