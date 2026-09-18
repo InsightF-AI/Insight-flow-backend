@@ -135,7 +135,7 @@ _PETR4 = Ativo(
     nome="Petrobras PN",
     tipo=TipoAtivo.ACAO,
     setor="Petroleo e Gas",
-    moeda="BRL",
+    moeda="USD",
     fonte_dados="manual",
 )
 
@@ -302,3 +302,111 @@ def test_remover_operacao_inexistente_lanca_erro():
 
     with pytest.raises(OperacaoNaoEncontradaError):
         service.remover_operacao(uuid4(), uuid4())
+
+
+from app.integrations.brapi.client import CotacaoAtual
+
+
+def _cotacao(preco: str) -> CotacaoAtual:
+    return CotacaoAtual(
+        ticker="PETR4",
+        preco=Decimal(preco),
+        variacao=Decimal("0"),
+        variacao_percentual=Decimal("0"),
+        maxima_dia=Decimal(preco),
+        minima_dia=Decimal(preco),
+        volume=Decimal("0"),
+    )
+
+
+def _service_com_cotacao(preco: str, taxa_cambio: Decimal | None = None) -> PortfolioService:
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_PETR4)
+    return PortfolioService(
+        FakeOperacaoRepository(),
+        ativo_repository,
+        FakeDadosMercadoService(cotacoes={"PETR4": _cotacao(preco)}),
+        FakeCambioService(taxa=taxa_cambio if taxa_cambio is not None else Decimal("1")),
+        bcb_client=None,
+    )
+
+
+def test_posicoes_calcula_valor_de_mercado_e_lucro_nao_realizado():
+    service = _service_com_cotacao(preco="50.00")
+    usuario_id = uuid4()
+    service.registrar_operacao(
+        usuario_id=usuario_id,
+        ativo_id=_PETR4.id,
+        tipo=TipoOperacao.COMPRA,
+        quantidade=Decimal("10"),
+        preco_unitario=Decimal("30.00"),
+        data=date(2026, 9, 1),
+    )
+
+    posicoes = service.posicoes(usuario_id)
+
+    assert len(posicoes) == 1
+    posicao = posicoes[0]
+    assert posicao.ativo_id == _PETR4.id
+    assert posicao.quantidade == Decimal("10")
+    assert posicao.preco_medio == Decimal("30.00")
+    assert posicao.valor_mercado == Decimal("500.00")
+    assert posicao.lucro_nao_realizado == Decimal("200.00")
+    assert posicao.lucro_realizado == Decimal("0")
+
+
+def test_posicoes_converte_valor_de_mercado_para_brl():
+    service = _service_com_cotacao(preco="50.00", taxa_cambio=Decimal("5.00"))
+    usuario_id = uuid4()
+    service.registrar_operacao(
+        usuario_id=usuario_id,
+        ativo_id=_PETR4.id,
+        tipo=TipoOperacao.COMPRA,
+        quantidade=Decimal("10"),
+        preco_unitario=Decimal("30.00"),
+        data=date(2026, 9, 1),
+    )
+
+    posicao = service.posicoes(usuario_id)[0]
+
+    assert posicao.valor_mercado == Decimal("500.00")
+    assert posicao.valor_mercado_brl == Decimal("2500.00")
+
+
+def test_posicoes_omite_ativos_totalmente_vendidos():
+    service = _service_com_cotacao(preco="50.00")
+    usuario_id = uuid4()
+    service.registrar_operacao(
+        usuario_id=usuario_id,
+        ativo_id=_PETR4.id,
+        tipo=TipoOperacao.COMPRA,
+        quantidade=Decimal("10"),
+        preco_unitario=Decimal("30.00"),
+        data=date(2026, 9, 1),
+    )
+    service.registrar_operacao(
+        usuario_id=usuario_id,
+        ativo_id=_PETR4.id,
+        tipo=TipoOperacao.VENDA,
+        quantidade=Decimal("10"),
+        preco_unitario=Decimal("50.00"),
+        data=date(2026, 9, 2),
+    )
+
+    assert service.posicoes(usuario_id) == []
+
+
+def test_posicoes_isola_por_usuario():
+    service = _service_com_cotacao(preco="50.00")
+    dono = uuid4()
+    outro = uuid4()
+    service.registrar_operacao(
+        usuario_id=dono,
+        ativo_id=_PETR4.id,
+        tipo=TipoOperacao.COMPRA,
+        quantidade=Decimal("10"),
+        preco_unitario=Decimal("30.00"),
+        data=date(2026, 9, 1),
+    )
+
+    assert service.posicoes(outro) == []

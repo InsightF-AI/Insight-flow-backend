@@ -8,7 +8,9 @@ from uuid import UUID, uuid4
 
 from app.domain.entities.operacao import Operacao
 from app.domain.enums.tipo_operacao import TipoOperacao
+from app.domain.value_objects.posicao import Posicao
 from app.integrations.bcb.client import BcbClient
+from app.integrations.brapi.client import BrapiIndisponivelError, TickerNaoEncontradoError
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.operacao_repository import OperacaoRepository
 from app.services.cambio_service import CambioService
@@ -111,6 +113,49 @@ class PortfolioService:
     def remover_operacao(self, usuario_id: UUID, operacao_id: UUID) -> None:
         operacao = self._buscar_operacao(usuario_id, operacao_id)
         self._operacao_repository.remover(operacao)
+
+    def posicoes(self, usuario_id: UUID) -> list[Posicao]:
+        estados = self._replay_por_ativo(usuario_id)
+        resultado: list[Posicao] = []
+        for ativo_id, estado in estados.items():
+            if estado.quantidade == 0:
+                continue
+            ativo = self._ativo_repository.buscar_por_id(ativo_id)
+            try:
+                cotacao = self._dados_mercado_service.buscar_cotacao_atual(ativo.ticker)
+            except (BrapiIndisponivelError, TickerNaoEncontradoError):
+                logger.warning(
+                    "Cotacao indisponivel para %s; ativo omitido das posicoes.", ativo.ticker
+                )
+                continue
+
+            valor_mercado = estado.quantidade * cotacao.preco
+            valor_mercado_brl = self._cambio_service.converter(
+                valor_mercado, de=ativo.moeda, para="BRL"
+            )
+            resultado.append(
+                Posicao(
+                    ativo_id=ativo_id,
+                    ticker=ativo.ticker,
+                    quantidade=estado.quantidade,
+                    preco_medio=estado.preco_medio,
+                    cotacao_atual=cotacao.preco,
+                    valor_mercado=valor_mercado,
+                    valor_mercado_brl=valor_mercado_brl,
+                    lucro_nao_realizado=valor_mercado - (estado.quantidade * estado.preco_medio),
+                    lucro_realizado=estado.lucro_realizado,
+                )
+            )
+        return resultado
+
+    def _replay_por_ativo(self, usuario_id: UUID) -> dict[UUID, EstadoPosicao]:
+        operacoes_por_ativo: dict[UUID, list[Operacao]] = {}
+        for operacao in self._operacao_repository.listar_por_usuario(usuario_id):
+            operacoes_por_ativo.setdefault(operacao.ativo_id, []).append(operacao)
+        return {
+            ativo_id: replay_operacoes(operacoes)
+            for ativo_id, operacoes in operacoes_por_ativo.items()
+        }
 
     def _buscar_operacao(self, usuario_id: UUID, operacao_id: UUID) -> Operacao:
         operacao = self._operacao_repository.buscar_por_id(operacao_id)
