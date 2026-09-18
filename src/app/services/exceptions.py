@@ -36,3 +36,11 @@ class NotificacaoNaoEncontradaError(Exception):
 
 class QuantidadeInsuficienteError(Exception):
     pass
+
+
+class OperacaoInvalidaError(Exception):
+    pass
+
+
+class OperacaoNaoEncontradaError(Exception):
+    pass
