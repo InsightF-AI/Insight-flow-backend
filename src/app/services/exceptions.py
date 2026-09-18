@@ -32,3 +32,19 @@ class AlertaNaoEncontradoError(Exception):
 
 class NotificacaoNaoEncontradaError(Exception):
     pass
+
+
+class QuantidadeInsuficienteError(Exception):
+    pass
+
+
+class OperacaoInvalidaError(Exception):
+    pass
+
+
+class OperacaoNaoEncontradaError(Exception):
+    pass
+
+
+class PortfolioVazioError(Exception):
+    pass
