@@ -32,3 +32,7 @@ class AlertaNaoEncontradoError(Exception):
 
 class NotificacaoNaoEncontradaError(Exception):
     pass
+
+
+class QuantidadeInsuficienteError(Exception):
+    pass
