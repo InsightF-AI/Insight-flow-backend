@@ -135,7 +135,7 @@ _PETR4 = Ativo(
     nome="Petrobras PN",
     tipo=TipoAtivo.ACAO,
     setor="Petroleo e Gas",
-    moeda="USD",
+    moeda="BRL",
     fonte_dados="manual",
 )
 
@@ -356,11 +356,43 @@ def test_posicoes_calcula_valor_de_mercado_e_lucro_nao_realizado():
 
 
 def test_posicoes_converte_valor_de_mercado_para_brl():
-    service = _service_com_cotacao(preco="50.00", taxa_cambio=Decimal("5.00"))
+    ativo_usd = Ativo(
+        id=uuid4(),
+        ticker="GOOGL",
+        nome="Alphabet Inc",
+        tipo=TipoAtivo.ACAO,
+        setor="Tecnologia",
+        moeda="USD",
+        fonte_dados="manual",
+    )
+
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(ativo_usd)
+
+    service = PortfolioService(
+        FakeOperacaoRepository(),
+        ativo_repository,
+        FakeDadosMercadoService(
+            cotacoes={
+                "GOOGL": CotacaoAtual(
+                    ticker="GOOGL",
+                    preco=Decimal("50.00"),
+                    variacao=Decimal("0"),
+                    variacao_percentual=Decimal("0"),
+                    maxima_dia=Decimal("50.00"),
+                    minima_dia=Decimal("50.00"),
+                    volume=Decimal("0"),
+                )
+            }
+        ),
+        FakeCambioService(taxa=Decimal("5.00")),
+        bcb_client=None,
+    )
+
     usuario_id = uuid4()
     service.registrar_operacao(
         usuario_id=usuario_id,
-        ativo_id=_PETR4.id,
+        ativo_id=ativo_usd.id,
         tipo=TipoOperacao.COMPRA,
         quantidade=Decimal("10"),
         preco_unitario=Decimal("30.00"),
