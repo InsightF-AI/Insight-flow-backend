@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 from app.domain.entities.operacao import Operacao
 from app.domain.enums.tipo_operacao import TipoOperacao
 from app.domain.value_objects.posicao import Posicao
+from app.domain.value_objects.rentabilidade import Rentabilidade
 from app.integrations.bcb.client import BcbClient
 from app.integrations.brapi.client import BrapiIndisponivelError, TickerNaoEncontradoError
 from app.repositories.interfaces.ativo_repository import AtivoRepository
@@ -147,6 +148,46 @@ class PortfolioService:
                 )
             )
         return resultado
+
+    def rentabilidade(self, usuario_id: UUID) -> Rentabilidade:
+        estados = self._replay_por_ativo(usuario_id)
+        custo_base_brl = Decimal(0)
+        valor_mercado_brl = Decimal(0)
+        lucro_realizado_brl = Decimal(0)
+
+        for ativo_id, estado in estados.items():
+            ativo = self._ativo_repository.buscar_por_id(ativo_id)
+            lucro_realizado_brl += self._cambio_service.converter(
+                estado.lucro_realizado, de=ativo.moeda, para="BRL"
+            )
+            if estado.quantidade == 0:
+                continue
+
+            custo_base = estado.quantidade * estado.preco_medio
+            custo_base_brl += self._cambio_service.converter(custo_base, de=ativo.moeda, para="BRL")
+            try:
+                cotacao = self._dados_mercado_service.buscar_cotacao_atual(ativo.ticker)
+            except (BrapiIndisponivelError, TickerNaoEncontradoError):
+                logger.warning(
+                    "Cotacao indisponivel para %s; excluido da rentabilidade.", ativo.ticker
+                )
+                continue
+            valor_mercado = estado.quantidade * cotacao.preco
+            valor_mercado_brl += self._cambio_service.converter(
+                valor_mercado, de=ativo.moeda, para="BRL"
+            )
+
+        lucro_nao_realizado_brl = valor_mercado_brl - custo_base_brl
+        percentual = (
+            lucro_nao_realizado_brl / custo_base_brl if custo_base_brl != 0 else Decimal(0)
+        )
+        return Rentabilidade(
+            custo_base_brl=custo_base_brl,
+            valor_mercado_brl=valor_mercado_brl,
+            lucro_nao_realizado_brl=lucro_nao_realizado_brl,
+            lucro_realizado_brl=lucro_realizado_brl,
+            percentual=percentual,
+        )
 
     def _replay_por_ativo(self, usuario_id: UUID) -> dict[UUID, EstadoPosicao]:
         operacoes_por_ativo: dict[UUID, list[Operacao]] = {}

@@ -442,3 +442,87 @@ def test_posicoes_isola_por_usuario():
     )
 
     assert service.posicoes(outro) == []
+
+
+def test_rentabilidade_calcula_percentual_sobre_custo_base():
+    service = _service_com_cotacao(preco="50.00")
+    usuario_id = uuid4()
+    service.registrar_operacao(
+        usuario_id=usuario_id,
+        ativo_id=_PETR4.id,
+        tipo=TipoOperacao.COMPRA,
+        quantidade=Decimal("10"),
+        preco_unitario=Decimal("30.00"),
+        data=date(2026, 9, 1),
+    )
+
+    rentabilidade = service.rentabilidade(usuario_id)
+
+    assert rentabilidade.custo_base_brl == Decimal("300.00")
+    assert rentabilidade.valor_mercado_brl == Decimal("500.00")
+    assert rentabilidade.lucro_nao_realizado_brl == Decimal("200.00")
+    assert rentabilidade.percentual == Decimal("200.00") / Decimal("300.00")
+
+
+def test_rentabilidade_nao_estoura_com_venda_parcial_lucrativa():
+    service = _service_com_cotacao(preco="50.00")
+    usuario_id = uuid4()
+    service.registrar_operacao(
+        usuario_id=usuario_id,
+        ativo_id=_PETR4.id,
+        tipo=TipoOperacao.COMPRA,
+        quantidade=Decimal("10"),
+        preco_unitario=Decimal("10.00"),
+        data=date(2026, 9, 1),
+    )
+    service.registrar_operacao(
+        usuario_id=usuario_id,
+        ativo_id=_PETR4.id,
+        tipo=TipoOperacao.VENDA,
+        quantidade=Decimal("5"),
+        preco_unitario=Decimal("30.00"),
+        data=date(2026, 9, 2),
+    )
+
+    rentabilidade = service.rentabilidade(usuario_id)
+
+    assert rentabilidade.lucro_realizado_brl == Decimal("100.00")
+    assert rentabilidade.percentual >= Decimal("0")
+    assert rentabilidade.percentual < Decimal("10")
+
+
+def test_rentabilidade_inclui_lucro_realizado_de_ativo_totalmente_vendido():
+    service = _service_com_cotacao(preco="50.00")
+    usuario_id = uuid4()
+    service.registrar_operacao(
+        usuario_id=usuario_id,
+        ativo_id=_PETR4.id,
+        tipo=TipoOperacao.COMPRA,
+        quantidade=Decimal("10"),
+        preco_unitario=Decimal("30.00"),
+        data=date(2026, 9, 1),
+    )
+    service.registrar_operacao(
+        usuario_id=usuario_id,
+        ativo_id=_PETR4.id,
+        tipo=TipoOperacao.VENDA,
+        quantidade=Decimal("10"),
+        preco_unitario=Decimal("50.00"),
+        data=date(2026, 9, 2),
+    )
+
+    rentabilidade = service.rentabilidade(usuario_id)
+
+    assert rentabilidade.lucro_realizado_brl == Decimal("200.00")
+    assert rentabilidade.custo_base_brl == Decimal("0")
+    assert rentabilidade.percentual == Decimal("0")
+
+
+def test_rentabilidade_sem_operacoes_retorna_zeros():
+    service = _service_com_cotacao(preco="50.00")
+
+    rentabilidade = service.rentabilidade(uuid4())
+
+    assert rentabilidade.custo_base_brl == Decimal("0")
+    assert rentabilidade.valor_mercado_brl == Decimal("0")
+    assert rentabilidade.percentual == Decimal("0")
