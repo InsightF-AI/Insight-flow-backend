@@ -8,6 +8,8 @@ from uuid import UUID, uuid4
 
 from app.domain.entities.operacao import Operacao
 from app.domain.enums.tipo_operacao import TipoOperacao
+from app.domain.enums.tipo_ativo import TipoAtivo
+from app.domain.value_objects.distribuicao import Distribuicao
 from app.domain.value_objects.posicao import Posicao
 from app.domain.value_objects.rentabilidade import Rentabilidade
 from app.integrations.bcb.client import BcbClient
@@ -188,6 +190,24 @@ class PortfolioService:
             lucro_realizado_brl=lucro_realizado_brl,
             percentual=percentual,
         )
+
+    def distribuicao(self, usuario_id: UUID) -> Distribuicao:
+        posicoes = self.posicoes(usuario_id)
+        total_brl = sum((p.valor_mercado_brl for p in posicoes), Decimal(0))
+
+        por_classe: dict[TipoAtivo, Decimal] = {}
+        por_setor: dict[str, Decimal] = {}
+        por_moeda: dict[str, Decimal] = {}
+
+        for posicao in posicoes:
+            ativo = self._ativo_repository.buscar_por_id(posicao.ativo_id)
+            fracao = posicao.valor_mercado_brl / total_brl if total_brl != 0 else Decimal(0)
+            por_classe[ativo.tipo] = por_classe.get(ativo.tipo, Decimal(0)) + fracao
+            setor = ativo.setor if ativo.setor is not None else "N/A"
+            por_setor[setor] = por_setor.get(setor, Decimal(0)) + fracao
+            por_moeda[ativo.moeda] = por_moeda.get(ativo.moeda, Decimal(0)) + fracao
+
+        return Distribuicao(por_classe=por_classe, por_setor=por_setor, por_moeda=por_moeda)
 
     def _replay_por_ativo(self, usuario_id: UUID) -> dict[UUID, EstadoPosicao]:
         operacoes_por_ativo: dict[UUID, list[Operacao]] = {}

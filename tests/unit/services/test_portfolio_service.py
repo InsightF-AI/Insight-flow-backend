@@ -526,3 +526,87 @@ def test_rentabilidade_sem_operacoes_retorna_zeros():
     assert rentabilidade.custo_base_brl == Decimal("0")
     assert rentabilidade.valor_mercado_brl == Decimal("0")
     assert rentabilidade.percentual == Decimal("0")
+
+
+_VALE3 = Ativo(
+    id=uuid4(),
+    ticker="VALE3",
+    nome="Vale ON",
+    tipo=TipoAtivo.ACAO,
+    setor="Mineracao",
+    moeda="BRL",
+    fonte_dados="manual",
+)
+
+_BTC = Ativo(
+    id=uuid4(),
+    ticker="BTC",
+    nome="Bitcoin",
+    tipo=TipoAtivo.CRIPTO,
+    setor=None,
+    moeda="USD",
+    fonte_dados="manual",
+)
+
+
+def test_distribuicao_agrupa_por_classe_setor_e_moeda_somando_um():
+    ativo_repository = FakeAtivoRepository()
+    for ativo in (_PETR4, _VALE3, _BTC):
+        ativo_repository.salvar(ativo)
+    service = PortfolioService(
+        FakeOperacaoRepository(),
+        ativo_repository,
+        FakeDadosMercadoService(
+            cotacoes={
+                "PETR4": _cotacao("50.00"),
+                "VALE3": CotacaoAtual(
+                    ticker="VALE3",
+                    preco=Decimal("50.00"),
+                    variacao=Decimal("0"),
+                    variacao_percentual=Decimal("0"),
+                    maxima_dia=Decimal("50.00"),
+                    minima_dia=Decimal("50.00"),
+                    volume=Decimal("0"),
+                ),
+                "BTC": CotacaoAtual(
+                    ticker="BTC",
+                    preco=Decimal("100.00"),
+                    variacao=Decimal("0"),
+                    variacao_percentual=Decimal("0"),
+                    maxima_dia=Decimal("100.00"),
+                    minima_dia=Decimal("100.00"),
+                    volume=Decimal("0"),
+                ),
+            }
+        ),
+        FakeCambioService(taxa=Decimal("5.00")),
+        bcb_client=None,
+    )
+    usuario_id = uuid4()
+    for ativo_id, preco in ((_PETR4.id, "30.00"), (_VALE3.id, "30.00"), (_BTC.id, "1.00")):
+        service.registrar_operacao(
+            usuario_id=usuario_id,
+            ativo_id=ativo_id,
+            tipo=TipoOperacao.COMPRA,
+            quantidade=Decimal("10"),
+            preco_unitario=Decimal(preco),
+            data=date(2026, 9, 1),
+        )
+
+    distribuicao = service.distribuicao(usuario_id)
+
+    assert sum(distribuicao.por_classe.values()) == Decimal("1")
+    assert sum(distribuicao.por_setor.values()) == Decimal("1")
+    assert sum(distribuicao.por_moeda.values()) == Decimal("1")
+    assert "N/A" in distribuicao.por_setor
+    assert distribuicao.por_moeda.keys() == {"BRL", "USD"}
+
+
+def test_distribuicao_sem_posicoes_retorna_dicionarios_vazios():
+    service = _service_com_cotacao(preco="50.00")
+
+    distribuicao = service.distribuicao(uuid4())
+
+    assert distribuicao.por_classe == {}
+    assert distribuicao.por_setor == {}
+    assert distribuicao.por_moeda == {}
