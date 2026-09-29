@@ -9,9 +9,10 @@ from app.domain.enums.tipo_notificacao import TipoNotificacao
 
 class NotificacaoResponse(BaseModel):
     id: UUID
-    ativo_id: UUID
+    ativo_id: UUID | None
     tipo: TipoNotificacao
     mensagem: str
+    contexto: dict
     lida: bool
     criado_em: datetime
 
@@ -22,6 +23,7 @@ class NotificacaoResponse(BaseModel):
             ativo_id=notificacao.ativo_id,
             tipo=notificacao.tipo,
             mensagem=notificacao.mensagem,
+            contexto=notificacao.contexto,
             lida=notificacao.lida,
             criado_em=notificacao.criado_em,
         )

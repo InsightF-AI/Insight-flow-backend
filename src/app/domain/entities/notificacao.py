@@ -11,7 +11,7 @@ from app.domain.enums.tipo_notificacao import TipoNotificacao
 class Notificacao:
     id: UUID
     usuario_id: UUID
-    ativo_id: UUID
+    ativo_id: UUID | None
     tipo: TipoNotificacao
     mensagem: str
     contexto: dict

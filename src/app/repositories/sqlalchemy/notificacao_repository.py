@@ -45,6 +45,15 @@ class SqlAlchemyNotificacaoRepository(NotificacaoRepository):
         )
         return [self._para_entidade(modelo) for modelo in modelos]
 
+    def buscar_ultima_do_tipo(self, usuario_id: UUID, tipo: TipoNotificacao) -> Notificacao | None:
+        modelo = self._session.scalars(
+            select(NotificacaoModel)
+            .where(NotificacaoModel.usuario_id == usuario_id, NotificacaoModel.tipo == tipo)
+            .order_by(NotificacaoModel.criado_em.desc())
+            .limit(1)
+        ).first()
+        return self._para_entidade(modelo) if modelo is not None else None
+
     @staticmethod
     def _para_entidade(modelo: NotificacaoModel) -> Notificacao:
         return Notificacao(

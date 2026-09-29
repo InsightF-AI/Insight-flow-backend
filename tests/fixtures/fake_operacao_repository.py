@@ -21,3 +21,6 @@ class FakeOperacaoRepository(OperacaoRepository):
 
     def remover(self, operacao: Operacao) -> None:
         self._operacoes.pop(operacao.id, None)
+
+    def listar_usuarios_com_operacoes(self) -> list[UUID]:
+        return list(dict.fromkeys(op.usuario_id for op in self._operacoes.values()))

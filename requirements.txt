@@ -12,6 +12,7 @@ httpx
 
 # Agendamento de jobs
 apscheduler
+tzdata
 
 # Persistência
 sqlalchemy

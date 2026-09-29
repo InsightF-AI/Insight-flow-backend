@@ -103,3 +103,19 @@ def test_remover_apaga_a_operacao(session):
     repo.remover(operacao)
 
     assert repo.buscar_por_id(operacao.id) is None
+
+
+def test_listar_usuarios_com_operacoes_retorna_ids_distintos(session):
+    usuario_com_duas = _novo_usuario(session)
+    usuario_com_uma = _novo_usuario(session)
+    _novo_usuario(session)
+    ativo = _novo_ativo(session)
+    repo = SqlAlchemyOperacaoRepository(session)
+    repo.salvar(_nova_operacao(usuario_com_duas.id, ativo.id))
+    repo.salvar(_nova_operacao(usuario_com_duas.id, ativo.id))
+    repo.salvar(_nova_operacao(usuario_com_uma.id, ativo.id))
+
+    usuarios = repo.listar_usuarios_com_operacoes()
+
+    assert set(usuarios) >= {usuario_com_duas.id, usuario_com_uma.id}
+    assert len(usuarios) == len(set(usuarios))

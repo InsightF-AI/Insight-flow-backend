@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from app.domain.entities.notificacao import Notificacao
+from app.domain.enums.tipo_notificacao import TipoNotificacao
 from app.repositories.interfaces.notificacao_repository import NotificacaoRepository
 
 
@@ -27,3 +28,11 @@ class FakeNotificacaoRepository(NotificacaoRepository):
         if apenas_nao_lidas:
             notificacoes = [n for n in notificacoes if not n.lida]
         return notificacoes
+
+    def buscar_ultima_do_tipo(self, usuario_id: UUID, tipo: TipoNotificacao) -> Notificacao | None:
+        notificacoes = [
+            n for n in self._notificacoes.values() if n.usuario_id == usuario_id and n.tipo == tipo
+        ]
+        if not notificacoes:
+            return None
+        return max(notificacoes, key=lambda n: n.criado_em)

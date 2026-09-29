@@ -1,10 +1,11 @@
 from app.domain.enums.tipo_notificacao import TipoNotificacao
 
 
-def test_possui_os_dois_tipos_de_notificacao_suportados():
+def test_possui_os_tipos_de_notificacao_suportados():
     assert {membro.value for membro in TipoNotificacao} == {
         "SINAL_ATIVADO",
         "ALERTA_DISPARADO",
+        "RESUMO_DIARIO",
     }
 
 

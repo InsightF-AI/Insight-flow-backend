@@ -119,3 +119,59 @@ def test_salvar_atualiza_notificacao_existente(session):
 
     encontrada = repo.buscar_por_id(notificacao.id)
     assert encontrada.lida is True
+
+
+def test_salvar_notificacao_sem_ativo_persiste_com_texto_longo_no_contexto(session):
+    usuario = _novo_usuario(session)
+    repo = SqlAlchemyNotificacaoRepository(session)
+    texto = "x" * 2000
+    notificacao = Notificacao(
+        id=uuid4(),
+        usuario_id=usuario.id,
+        ativo_id=None,
+        tipo=TipoNotificacao.RESUMO_DIARIO,
+        mensagem="Resumo diario da carteira",
+        contexto={"texto": texto},
+        criado_em=datetime(2026, 9, 29, 21, 30, 0, tzinfo=UTC),
+    )
+
+    repo.salvar(notificacao)
+    encontrada = repo.buscar_por_id(notificacao.id)
+
+    assert encontrada.ativo_id is None
+    assert encontrada.tipo == TipoNotificacao.RESUMO_DIARIO
+    assert encontrada.contexto["texto"] == texto
+
+
+def test_buscar_ultima_do_tipo_retorna_a_mais_recente_do_tipo_e_do_usuario(session):
+    usuario = _novo_usuario(session)
+    outro_usuario = _novo_usuario(session)
+    ativo = _novo_ativo(session)
+    repo = SqlAlchemyNotificacaoRepository(session)
+
+    def resumo(usuario_id, dia, texto):
+        return Notificacao(
+            id=uuid4(),
+            usuario_id=usuario_id,
+            ativo_id=None,
+            tipo=TipoNotificacao.RESUMO_DIARIO,
+            mensagem="Resumo diario da carteira",
+            contexto={"texto": texto},
+            criado_em=datetime(2026, 9, dia, 21, 30, 0, tzinfo=UTC),
+        )
+
+    repo.salvar(resumo(usuario.id, 28, "antigo"))
+    repo.salvar(resumo(usuario.id, 29, "recente"))
+    repo.salvar(resumo(outro_usuario.id, 30, "de outro"))
+    repo.salvar(_nova_notificacao(usuario.id, ativo.id))
+
+    encontrada = repo.buscar_ultima_do_tipo(usuario.id, TipoNotificacao.RESUMO_DIARIO)
+
+    assert encontrada.contexto["texto"] == "recente"
+
+
+def test_buscar_ultima_do_tipo_sem_notificacoes_retorna_none(session):
+    usuario = _novo_usuario(session)
+    repo = SqlAlchemyNotificacaoRepository(session)
+
+    assert repo.buscar_ultima_do_tipo(usuario.id, TipoNotificacao.RESUMO_DIARIO) is None
