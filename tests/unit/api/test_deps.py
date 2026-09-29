@@ -51,3 +51,23 @@ def test_token_de_usuario_inexistente_lanca_401():
         get_usuario_atual(_credenciais(token), service, SETTINGS)
 
     assert exc_info.value.status_code == 401
+
+
+def test_get_provedor_llm_sem_configuracao_lanca_503():
+    from app.api.deps import get_provedor_llm
+
+    with pytest.raises(HTTPException) as exc_info:
+        get_provedor_llm(Settings(_env_file=None))
+
+    assert exc_info.value.status_code == 503
+
+
+def test_get_provedor_llm_configurado_retorna_gemini():
+    from app.ai.providers.gemini import GeminiProvider
+    from app.api.deps import get_provedor_llm
+
+    provedor = get_provedor_llm(
+        Settings(_env_file=None, ai_habilitada=True, gemini_api_key="chave")
+    )
+
+    assert isinstance(provedor, GeminiProvider)

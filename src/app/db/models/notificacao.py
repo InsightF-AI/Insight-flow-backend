@@ -14,7 +14,7 @@ class NotificacaoModel(Base):
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
     usuario_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("usuarios.id"), nullable=False)
-    ativo_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("ativos.id"), nullable=False)
+    ativo_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("ativos.id"), nullable=True)
     tipo: Mapped[str] = mapped_column(String(30), nullable=False)
     mensagem: Mapped[str] = mapped_column(String(255), nullable=False)
     contexto: Mapped[dict] = mapped_column(JSON, nullable=False)

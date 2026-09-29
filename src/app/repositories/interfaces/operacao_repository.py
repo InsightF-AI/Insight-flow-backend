@@ -18,3 +18,6 @@ class OperacaoRepository(ABC):
 
     @abstractmethod
     def remover(self, operacao: Operacao) -> None: ...
+
+    @abstractmethod
+    def listar_usuarios_com_operacoes(self) -> list[UUID]: ...

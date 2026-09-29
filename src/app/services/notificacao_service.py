@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from app.ai.guardrails.aviso_legal import AVISO_LEGAL
 from app.domain.entities.alerta_personalizado import AlertaPersonalizado
 from app.domain.entities.ativo import Ativo
 from app.domain.entities.notificacao import Notificacao
@@ -18,6 +19,9 @@ _CONDICAO_TEXTO = {
     TipoCondicaoAlerta.PRECO_MAIOR_IGUAL: "preco maior ou igual",
     TipoCondicaoAlerta.PRECO_MENOR_IGUAL: "preco menor ou igual",
 }
+
+
+_TITULO_RESUMO_DIARIO = "Resumo diario da carteira"
 
 
 class NotificacaoService:
@@ -58,6 +62,24 @@ class NotificacaoService:
         )
         self._notificacao_repository.salvar(notificacao)
         return notificacao
+
+    def enviar_resumo_diario(self, usuario_id: UUID, texto: str, metadados: dict) -> Notificacao:
+        notificacao = Notificacao(
+            id=uuid4(),
+            usuario_id=usuario_id,
+            ativo_id=None,
+            tipo=TipoNotificacao.RESUMO_DIARIO,
+            mensagem=_TITULO_RESUMO_DIARIO,
+            contexto={"texto": texto, "aviso_legal": AVISO_LEGAL, **metadados},
+            criado_em=datetime.now(UTC),
+        )
+        self._notificacao_repository.salvar(notificacao)
+        return notificacao
+
+    def buscar_ultimo_resumo_diario(self, usuario_id: UUID) -> Notificacao | None:
+        return self._notificacao_repository.buscar_ultima_do_tipo(
+            usuario_id, TipoNotificacao.RESUMO_DIARIO
+        )
 
     def listar_notificacoes(
         self, usuario_id: UUID, apenas_nao_lidas: bool = False

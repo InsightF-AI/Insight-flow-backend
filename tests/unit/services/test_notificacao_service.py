@@ -139,3 +139,46 @@ def test_marcar_como_lida_de_outro_usuario_lanca_erro():
 
     with pytest.raises(NotificacaoNaoEncontradaError):
         service.marcar_como_lida(uuid4(), notificacao.id)
+
+
+def test_enviar_resumo_diario_persiste_notificacao_sem_ativo_com_texto_no_contexto():
+    repository = FakeNotificacaoRepository()
+    service = NotificacaoService(repository)
+    usuario_id = uuid4()
+    texto = "x" * 2000
+
+    notificacao = service.enviar_resumo_diario(
+        usuario_id, texto, {"modelo": "gemini-2.5-flash", "prompt_versao": "resumo_diario.v1"}
+    )
+
+    assert notificacao.tipo == TipoNotificacao.RESUMO_DIARIO
+    assert notificacao.ativo_id is None
+    assert notificacao.usuario_id == usuario_id
+    assert notificacao.mensagem == "Resumo diario da carteira"
+    assert len(notificacao.mensagem) <= 255
+    assert notificacao.contexto["texto"] == texto
+    assert notificacao.contexto["aviso_legal"] == (
+        "Análise gerada por IA. Não constitui recomendação de investimento."
+    )
+    assert notificacao.contexto["modelo"] == "gemini-2.5-flash"
+    assert repository.buscar_por_id(notificacao.id) == notificacao
+
+
+def test_buscar_ultimo_resumo_diario_retorna_o_mais_recente_do_usuario():
+    repository = FakeNotificacaoRepository()
+    service = NotificacaoService(repository)
+    usuario_id = uuid4()
+    service.enviar_resumo_diario(usuario_id, "antigo", {})
+    recente = service.enviar_resumo_diario(usuario_id, "recente", {})
+    recente.criado_em = datetime(2100, 1, 1, tzinfo=UTC)
+    service.enviar_resumo_diario(uuid4(), "de outro usuario", {})
+
+    ultimo = service.buscar_ultimo_resumo_diario(usuario_id)
+
+    assert ultimo.id == recente.id
+
+
+def test_buscar_ultimo_resumo_diario_sem_resumos_retorna_none():
+    service = NotificacaoService(FakeNotificacaoRepository())
+
+    assert service.buscar_ultimo_resumo_diario(uuid4()) is None

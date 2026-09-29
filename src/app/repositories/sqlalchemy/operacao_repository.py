@@ -40,6 +40,9 @@ class SqlAlchemyOperacaoRepository(OperacaoRepository):
         )
         return [self._para_entidade(modelo) for modelo in modelos]
 
+    def listar_usuarios_com_operacoes(self) -> list[UUID]:
+        return list(self._session.scalars(select(OperacaoModel.usuario_id).distinct()))
+
     def remover(self, operacao: Operacao) -> None:
         modelo = self._session.get(OperacaoModel, operacao.id)
         if modelo is not None:

@@ -7,6 +7,7 @@ import redis
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.orm import sessionmaker
 
+from app.ai.providers.fabrica import criar_provedor_llm
 from app.core.config import Settings
 from app.db.session import criar_session_factory
 from app.domain.enums.tipo_ativo import TipoAtivo
@@ -19,9 +20,11 @@ from app.repositories.sqlalchemy.indicador_tecnico_repository import (
     SqlAlchemyIndicadorTecnicoRepository,
 )
 from app.repositories.sqlalchemy.notificacao_repository import SqlAlchemyNotificacaoRepository
+from app.repositories.sqlalchemy.operacao_repository import SqlAlchemyOperacaoRepository
 from app.repositories.sqlalchemy.sinal_repository import SqlAlchemySinalRepository
 from app.repositories.sqlalchemy.watchlist_repository import SqlAlchemyWatchlistRepository
 from app.scheduler.ciclo import executar_ciclo_monitoramento
+from app.scheduler.resumo_diario import gerar_resumos_diarios
 from app.services.alerta_service import AlertaService
 from app.services.ativo_service import AtivoService
 from app.services.cached_cambio_service import CachedCambioService
@@ -30,7 +33,9 @@ from app.services.cambio_service import BcbCambioService
 from app.services.dados_mercado_service import DadosMercadoService
 from app.services.indicador_service import IndicadorService
 from app.services.notificacao_service import NotificacaoService
+from app.services.portfolio_service import PortfolioService
 from app.services.redis_mercado_cache import RedisMercadoCache
+from app.services.resumo_carteira_service import ResumoCarteiraService
 from app.services.sinal_service import SinalService
 
 _RENDA_VARIAVEL = {TipoAtivo.ACAO, TipoAtivo.FII, TipoAtivo.ETF, TipoAtivo.BDR}
@@ -50,6 +55,15 @@ def registrar_jobs(scheduler: BackgroundScheduler, settings: Settings) -> None:
         minutes=settings.scheduler_intervalo_cripto_minutos,
         id="ciclo_cripto",
     )
+    if settings.ai_habilitada and settings.gemini_api_key and settings.ai_provider == "gemini":
+        scheduler.add_job(
+            lambda: _executar_resumos_diarios(settings),
+            "cron",
+            hour=settings.resumo_diario_hora,
+            minute=settings.resumo_diario_minuto,
+            timezone="America/Sao_Paulo",
+            id="resumo_diario",
+        )
 
 
 @lru_cache
@@ -119,6 +133,54 @@ def _executar_ciclo(settings: Settings, tipos_ativo: set[TipoAtivo]) -> None:
             SinalService(ativo_repository, cotacao_repository, indicador_service, sinal_repository),
             NotificacaoService(notificacao_repository),
             ao_falhar_ativo=session.rollback,
+        )
+    finally:
+        session.close()
+
+
+def _executar_resumos_diarios(settings: Settings) -> None:
+    session = _session_factory(settings.database_url)()
+    try:
+        cache = RedisMercadoCache(_redis_client(settings.redis_url))
+        brapi_client = BrapiClient(
+            _brapi_http_client(settings.brapi_base_url),
+            settings.brapi_api_key or None,
+        )
+        bcb_client = BcbClient(_bcb_http_client(settings.bcb_base_url))
+
+        operacao_repository = SqlAlchemyOperacaoRepository(session)
+        ativo_repository = SqlAlchemyAtivoRepository(session)
+        notificacao_repository = SqlAlchemyNotificacaoRepository(session)
+
+        dados_mercado_service = CachedDadosMercadoService(
+            DadosMercadoService(brapi_client),
+            cache,
+            ttl_cotacao_atual=settings.cache_ttl_cotacao_atual_segundos,
+        )
+        cambio_service = CachedCambioService(
+            BcbCambioService(bcb_client),
+            cache,
+            ttl_segundos=settings.cache_ttl_cambio_segundos,
+            ttl_fallback_segundos=settings.cache_ttl_cambio_fallback_segundos,
+        )
+        portfolio_service = PortfolioService(
+            operacao_repository,
+            ativo_repository,
+            dados_mercado_service,
+            cambio_service,
+            bcb_client,
+        )
+        resumo_service = ResumoCarteiraService(
+            NotificacaoService(notificacao_repository),
+            portfolio_service,
+            criar_provedor_llm(settings),
+        )
+
+        gerar_resumos_diarios(
+            operacao_repository,
+            resumo_service,
+            settings.gemini_intervalo_entre_chamadas_segundos,
+            ao_falhar_usuario=session.rollback,
         )
     finally:
         session.close()
