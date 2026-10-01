@@ -21,3 +21,6 @@ class AlertaRepository(ABC):
 
     @abstractmethod
     def remover(self, alerta: AlertaPersonalizado) -> None: ...
+
+    @abstractmethod
+    def listar_ativos_distintos_com_alerta_ativo(self) -> list[UUID]: ...

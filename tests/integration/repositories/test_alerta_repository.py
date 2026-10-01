@@ -136,3 +136,18 @@ def test_remover_apaga_o_alerta(session):
     repo.remover(alerta)
 
     assert repo.buscar_por_id(alerta.id) is None
+
+
+def test_listar_ativos_distintos_com_alerta_ativo_ignora_alertas_desativados(session):
+    usuario = _novo_usuario(session)
+    ativo = _novo_ativo(session)
+    outro_ativo = _novo_ativo(session, ticker="VALE3")
+    repo = SqlAlchemyAlertaRepository(session)
+    repo.salvar(_novo_alerta(usuario.id, ativo.id))
+    alerta_desativado = _novo_alerta(usuario.id, outro_ativo.id, valor_alvo=Decimal("50.00"))
+    alerta_desativado.ativo = False
+    repo.salvar(alerta_desativado)
+
+    ids = repo.listar_ativos_distintos_com_alerta_ativo()
+
+    assert set(ids) == {ativo.id}

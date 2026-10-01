@@ -24,3 +24,9 @@ class FakeWatchlistRepository(WatchlistRepository):
             if item.usuario_id == usuario_id and item.ativo_id == ativo_id:
                 return item
         return None
+
+    def listar_ativos_distintos_ativos(self) -> list[UUID]:
+        return list({item.ativo_id for item in self._itens.values()})
+
+    def listar_por_ativo(self, ativo_id: UUID) -> list[Watchlist]:
+        return [item for item in self._itens.values() if item.ativo_id == ativo_id]

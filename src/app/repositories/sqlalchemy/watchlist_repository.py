@@ -47,6 +47,16 @@ class SqlAlchemyWatchlistRepository(WatchlistRepository):
         )
         return self._para_entidade(modelo) if modelo is not None else None
 
+    def listar_ativos_distintos_ativos(self) -> list[UUID]:
+        ids = self._session.scalars(select(WatchlistModel.ativo_id).distinct())
+        return list(ids)
+
+    def listar_por_ativo(self, ativo_id: UUID) -> list[Watchlist]:
+        modelos = self._session.scalars(
+            select(WatchlistModel).where(WatchlistModel.ativo_id == ativo_id)
+        )
+        return [self._para_entidade(modelo) for modelo in modelos]
+
     @staticmethod
     def _para_entidade(modelo: WatchlistModel) -> Watchlist:
         return Watchlist(

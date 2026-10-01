@@ -18,3 +18,9 @@ class WatchlistRepository(ABC):
 
     @abstractmethod
     def buscar_por_usuario_e_ativo(self, usuario_id: UUID, ativo_id: UUID) -> Watchlist | None: ...
+
+    @abstractmethod
+    def listar_ativos_distintos_ativos(self) -> list[UUID]: ...
+
+    @abstractmethod
+    def listar_por_ativo(self, ativo_id: UUID) -> list[Watchlist]: ...

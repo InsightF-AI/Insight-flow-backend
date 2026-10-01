@@ -12,9 +12,10 @@ httpx
 
 # Agendamento de jobs
 apscheduler
+tzdata
 
 # Persistência
-sqlalchemy
+sqlalchemy<2.1  # 2.1 usa psycopg (v3) como driver padrao de postgresql://; o projeto usa psycopg2
 psycopg2-binary
 alembic
 

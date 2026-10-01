@@ -7,6 +7,9 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.ai.ferramentas_chat import ExecutorFerramentas
+from app.ai.providers.base import ProvedorLLM
+from app.ai.providers.fabrica import criar_provedor_llm
 from app.core.config import Settings, get_settings
 from app.core.security import TokenInvalidoError, decodificar_token
 from app.db.session import criar_session_factory
@@ -14,29 +17,40 @@ from app.domain.entities.usuario import Usuario
 from app.integrations.bcb.client import BcbClient
 from app.integrations.brapi.client import BrapiClient
 from app.repositories.interfaces.alerta_repository import AlertaRepository
+from app.repositories.interfaces.analise_ia_repository import AnaliseIARepository
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.cotacao_repository import CotacaoRepository
 from app.repositories.interfaces.indicador_tecnico_repository import IndicadorTecnicoRepository
+from app.repositories.interfaces.notificacao_repository import NotificacaoRepository
+from app.repositories.interfaces.operacao_repository import OperacaoRepository
 from app.repositories.interfaces.sinal_repository import SinalRepository
 from app.repositories.interfaces.usuario_repository import UsuarioRepository
 from app.repositories.interfaces.watchlist_repository import WatchlistRepository
 from app.repositories.sqlalchemy.alerta_repository import SqlAlchemyAlertaRepository
+from app.repositories.sqlalchemy.analise_ia_repository import SqlAlchemyAnaliseIARepository
 from app.repositories.sqlalchemy.ativo_repository import SqlAlchemyAtivoRepository
 from app.repositories.sqlalchemy.cotacao_repository import SqlAlchemyCotacaoRepository
 from app.repositories.sqlalchemy.indicador_tecnico_repository import (
     SqlAlchemyIndicadorTecnicoRepository,
 )
+from app.repositories.sqlalchemy.notificacao_repository import SqlAlchemyNotificacaoRepository
+from app.repositories.sqlalchemy.operacao_repository import SqlAlchemyOperacaoRepository
 from app.repositories.sqlalchemy.sinal_repository import SqlAlchemySinalRepository
 from app.repositories.sqlalchemy.usuario_repository import SqlAlchemyUsuarioRepository
 from app.repositories.sqlalchemy.watchlist_repository import SqlAlchemyWatchlistRepository
 from app.services.alerta_service import AlertaService
+from app.services.analise_ia_service import AnaliseIAService
 from app.services.ativo_service import AtivoService
 from app.services.cached_cambio_service import CachedCambioService
 from app.services.cached_dados_mercado_service import CachedDadosMercadoService
 from app.services.cambio_service import BcbCambioService, CambioService
+from app.services.chat_service import ChatService
 from app.services.dados_mercado_service import DadosMercadoService
+from app.services.exceptions import LLMIndisponivelError
 from app.services.indicador_service import IndicadorService
 from app.services.mercado_cache import MercadoCache
+from app.services.notificacao_service import NotificacaoService
+from app.services.portfolio_service import PortfolioService
 from app.services.redis_mercado_cache import RedisMercadoCache
 from app.services.sinal_service import SinalService
 from app.services.usuario_service import UsuarioService
@@ -104,6 +118,12 @@ def get_alerta_repository(
     session: Session = Depends(get_db_session),
 ) -> AlertaRepository:
     return SqlAlchemyAlertaRepository(session)
+
+
+def get_notificacao_repository(
+    session: Session = Depends(get_db_session),
+) -> NotificacaoRepository:
+    return SqlAlchemyNotificacaoRepository(session)
 
 
 @lru_cache
@@ -199,6 +219,76 @@ def get_alerta_service(
 ) -> AlertaService:
     return AlertaService(
         alerta_repository, ativo_repository, dados_mercado_service, cambio_service
+    )
+
+
+def get_operacao_repository(
+    session: Session = Depends(get_db_session),
+) -> OperacaoRepository:
+    return SqlAlchemyOperacaoRepository(session)
+
+
+def get_portfolio_service(
+    operacao_repository: OperacaoRepository = Depends(get_operacao_repository),
+    ativo_repository: AtivoRepository = Depends(get_ativo_repository),
+    dados_mercado_service: DadosMercadoService = Depends(get_dados_mercado_service),
+    cambio_service: CambioService = Depends(get_cambio_service),
+    bcb_client: BcbClient = Depends(get_bcb_client),
+) -> PortfolioService:
+    return PortfolioService(
+        operacao_repository, ativo_repository, dados_mercado_service, cambio_service, bcb_client
+    )
+
+
+def get_notificacao_service(
+    notificacao_repository: NotificacaoRepository = Depends(get_notificacao_repository),
+) -> NotificacaoService:
+    return NotificacaoService(notificacao_repository)
+
+
+def get_analise_ia_repository(
+    session: Session = Depends(get_db_session),
+) -> AnaliseIARepository:
+    return SqlAlchemyAnaliseIARepository(session)
+
+
+def get_provedor_llm(settings: Settings = Depends(get_settings)) -> ProvedorLLM:
+    try:
+        return criar_provedor_llm(settings)
+    except LLMIndisponivelError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Provedor de IA indisponivel"
+        ) from exc
+
+
+def get_analise_ia_service(
+    ativo_repository: AtivoRepository = Depends(get_ativo_repository),
+    cotacao_repository: CotacaoRepository = Depends(get_cotacao_repository),
+    indicador_service: IndicadorService = Depends(get_indicador_service),
+    sinal_service: SinalService = Depends(get_sinal_service),
+    analise_repository: AnaliseIARepository = Depends(get_analise_ia_repository),
+    provedor: ProvedorLLM = Depends(get_provedor_llm),
+) -> AnaliseIAService:
+    return AnaliseIAService(
+        ativo_repository,
+        cotacao_repository,
+        indicador_service,
+        sinal_service,
+        analise_repository,
+        provedor,
+    )
+
+
+def get_chat_service(
+    portfolio_service: PortfolioService = Depends(get_portfolio_service),
+    ativo_repository: AtivoRepository = Depends(get_ativo_repository),
+    provedor: ProvedorLLM = Depends(get_provedor_llm),
+    settings: Settings = Depends(get_settings),
+) -> ChatService:
+    return ChatService(
+        provedor,
+        ExecutorFerramentas(portfolio_service, ativo_repository),
+        settings.max_iteracoes_ferramentas,
     )
 
 

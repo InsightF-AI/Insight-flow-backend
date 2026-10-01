@@ -60,6 +60,14 @@ class SqlAlchemyAlertaRepository(AlertaRepository):
             self._session.delete(modelo)
             self._session.commit()
 
+    def listar_ativos_distintos_com_alerta_ativo(self) -> list[UUID]:
+        ids = self._session.scalars(
+            select(AlertaPersonalizadoModel.ativo_id)
+            .where(AlertaPersonalizadoModel.ativo.is_(True))
+            .distinct()
+        )
+        return list(ids)
+
     @staticmethod
     def _para_entidade(modelo: AlertaPersonalizadoModel) -> AlertaPersonalizado:
         return AlertaPersonalizado(

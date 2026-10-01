@@ -28,3 +28,6 @@ class FakeAlertaRepository(AlertaRepository):
 
     def remover(self, alerta: AlertaPersonalizado) -> None:
         self._alertas.pop(alerta.id, None)
+
+    def listar_ativos_distintos_com_alerta_ativo(self) -> list[UUID]:
+        return list({alerta.ativo_id for alerta in self._alertas.values() if alerta.ativo})

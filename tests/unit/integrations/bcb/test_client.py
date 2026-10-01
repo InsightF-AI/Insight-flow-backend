@@ -1,9 +1,10 @@
+from datetime import date
 from decimal import Decimal
 
 import httpx
 import pytest
 
-from app.integrations.bcb.client import BcbClient, BcbIndisponivelError
+from app.integrations.bcb.client import BcbClient, BcbIndisponivelError, PontoCdi
 
 
 def _client(handler) -> BcbClient:
@@ -53,3 +54,36 @@ def test_buscar_ptax_venda_com_erro_de_rede_lanca_bcb_indisponivel():
 
     with pytest.raises(BcbIndisponivelError):
         client.buscar_ptax_venda()
+
+
+def test_buscar_serie_cdi_mapeia_pontos_diarios():
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/dados/serie/bcdata.sgs.12/dados"
+        assert request.url.params["dataInicial"] == "01/09/2026"
+        assert request.url.params["dataFinal"] == "10/09/2026"
+        return httpx.Response(
+            200,
+            json=[
+                {"data": "01/09/2026", "valor": "0.051660"},
+                {"data": "02/09/2026", "valor": "0.051660"},
+            ],
+        )
+
+    client = _client(handler)
+
+    pontos = client.buscar_serie_cdi(date(2026, 9, 1), date(2026, 9, 10))
+
+    assert pontos == [
+        PontoCdi(data=date(2026, 9, 1), valor=Decimal("0.051660")),
+        PontoCdi(data=date(2026, 9, 2), valor=Decimal("0.051660")),
+    ]
+
+
+def test_buscar_serie_cdi_com_erro_http_lanca_bcb_indisponivel():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, json={"message": "erro interno"})
+
+    client = _client(handler)
+
+    with pytest.raises(BcbIndisponivelError):
+        client.buscar_serie_cdi(date(2026, 9, 1), date(2026, 9, 10))
