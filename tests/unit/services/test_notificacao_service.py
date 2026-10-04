@@ -12,8 +12,10 @@ from app.domain.enums.tipo_condicao_alerta import TipoCondicaoAlerta
 from app.domain.enums.tipo_notificacao import TipoNotificacao
 from app.domain.regras_sinal_padrao import REGRAS_PADRAO
 from app.integrations.brapi.client import CotacaoAtual
+from app.notifications.canal import CanalNotificacao, CanalTempoReal
 from app.services.exceptions import NotificacaoNaoEncontradaError
 from app.services.notificacao_service import NotificacaoService
+from tests.fixtures.fake_barramento_notificacoes import FakeBarramentoNotificacoes
 from tests.fixtures.fake_notificacao_repository import FakeNotificacaoRepository
 
 _ATIVO = Ativo(
@@ -182,3 +184,104 @@ def test_buscar_ultimo_resumo_diario_sem_resumos_retorna_none():
     service = NotificacaoService(FakeNotificacaoRepository())
 
     assert service.buscar_ultimo_resumo_diario(uuid4()) is None
+
+
+class _CanalQueFalha(CanalNotificacao):
+    def entregar(self, notificacao) -> None:
+        raise RuntimeError("canal fora do ar")
+
+
+class _CanalQueRegistra(CanalNotificacao):
+    def __init__(self) -> None:
+        self.entregues = []
+
+    def entregar(self, notificacao) -> None:
+        self.entregues.append(notificacao)
+
+
+def _alerta_e_cotacao():
+    alerta = AlertaPersonalizado.criar(
+        id=uuid4(),
+        usuario_id=uuid4(),
+        ativo_id=_ATIVO.id,
+        tipo_condicao=TipoCondicaoAlerta.PRECO_MAIOR_IGUAL,
+        valor_alvo=Decimal("40.00"),
+        moeda_alvo="BRL",
+        criado_em=datetime(2026, 9, 16, 10, 0, 0, tzinfo=UTC),
+    )
+    cotacao = CotacaoAtual(
+        ticker="PETR4",
+        preco=Decimal("40.50"),
+        variacao=Decimal("0.5"),
+        variacao_percentual=Decimal("1.25"),
+        maxima_dia=Decimal("41.00"),
+        minima_dia=Decimal("40.00"),
+        volume=Decimal(1000),
+    )
+    return alerta, cotacao
+
+
+def test_resumo_diario_e_entregue_em_todos_os_canais():
+    repositorio = FakeNotificacaoRepository()
+    primeiro = _CanalQueRegistra()
+    segundo = _CanalQueRegistra()
+    service = NotificacaoService(repositorio, canais=[primeiro, segundo])
+
+    resumo = service.enviar_resumo_diario(uuid4(), "Texto do resumo", {})
+
+    assert primeiro.entregues == [resumo]
+    assert segundo.entregues == [resumo]
+    assert repositorio.buscar_por_id(resumo.id) == resumo
+
+
+def test_alerta_de_sinal_e_entregue_nos_canais():
+    registrador = _CanalQueRegistra()
+    service = NotificacaoService(FakeNotificacaoRepository(), canais=[registrador])
+
+    notificacao = service.enviar_alerta(uuid4(), _sinal(), _ATIVO)
+
+    assert registrador.entregues == [notificacao]
+
+
+def test_alerta_personalizado_e_entregue_nos_canais():
+    registrador = _CanalQueRegistra()
+    service = NotificacaoService(FakeNotificacaoRepository(), canais=[registrador])
+    alerta, cotacao = _alerta_e_cotacao()
+
+    notificacao = service.enviar_alerta_personalizado(alerta.usuario_id, alerta, cotacao)
+
+    assert registrador.entregues == [notificacao]
+
+
+def test_falha_de_um_canal_nao_impede_gravacao_nem_os_demais_canais():
+    repositorio = FakeNotificacaoRepository()
+    registrador = _CanalQueRegistra()
+    service = NotificacaoService(repositorio, canais=[_CanalQueFalha(), registrador])
+
+    resumo = service.enviar_resumo_diario(uuid4(), "Texto do resumo", {})
+
+    assert repositorio.buscar_por_id(resumo.id) == resumo
+    assert registrador.entregues == [resumo]
+
+
+def test_barramento_fora_do_ar_nao_impede_a_gravacao():
+    repositorio = FakeNotificacaoRepository()
+    barramento = FakeBarramentoNotificacoes()
+    barramento.falhar = True
+    service = NotificacaoService(repositorio, canais=[CanalTempoReal(barramento)])
+
+    resumo = service.enviar_resumo_diario(uuid4(), "Texto do resumo", {})
+
+    assert repositorio.buscar_por_id(resumo.id) == resumo
+
+
+def test_marcar_como_lida_nao_entrega_nos_canais():
+    registrador = _CanalQueRegistra()
+    service = NotificacaoService(FakeNotificacaoRepository(), canais=[registrador])
+    usuario_id = uuid4()
+    resumo = service.enviar_resumo_diario(usuario_id, "Texto do resumo", {})
+    registrador.entregues.clear()
+
+    service.marcar_como_lida(usuario_id, resumo.id)
+
+    assert registrador.entregues == []

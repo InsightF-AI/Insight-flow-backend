@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6381/0"
     cache_ttl_cotacao_atual_segundos: int = 60
     cache_ttl_catalogo_cripto_segundos: int = 86400
+    ws_timeout_autenticacao_segundos: float = 10
+    ws_intervalo_ping_segundos: float = 30
 
     historico_backfill_periodo: PeriodoHistorico = PeriodoHistorico.TRES_MESES
     historico_backfill_periodo_cripto: PeriodoHistorico = PeriodoHistorico.CINCO_ANOS

@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from app.api.deps import (
     get_analise_ia_repository,
     get_ativo_repository,
+    get_barramento_notificacoes,
     get_cotacao_repository,
     get_dados_mercado_service,
     get_indicador_tecnico_repository,
@@ -21,6 +22,7 @@ from app.main import app
 from app.services.portfolio_service import PortfolioService
 from tests.fixtures.fake_analise_ia_repository import FakeAnaliseIARepository
 from tests.fixtures.fake_ativo_repository import FakeAtivoRepository
+from tests.fixtures.fake_barramento_notificacoes import FakeBarramentoNotificacoes
 from tests.fixtures.fake_cambio_service import FakeCambioService
 from tests.fixtures.fake_cotacao_repository import FakeCotacaoRepository
 from tests.fixtures.fake_dados_mercado_service import FakeDadosMercadoService
@@ -101,6 +103,11 @@ def dados_mercado_service(
 
 
 @pytest.fixture
+def barramento_notificacoes() -> FakeBarramentoNotificacoes:
+    return FakeBarramentoNotificacoes()
+
+
+@pytest.fixture
 def refresh_token_repository() -> FakeRefreshTokenRepository:
     return FakeRefreshTokenRepository()
 
@@ -118,6 +125,7 @@ def client(
     provedor_llm: FakeProvedorLLM,
     analise_repository: FakeAnaliseIARepository,
     refresh_token_repository: FakeRefreshTokenRepository,
+    barramento_notificacoes: FakeBarramentoNotificacoes,
 ) -> TestClient:
     app.dependency_overrides[get_usuario_repository] = lambda: usuario_repository
     app.dependency_overrides[get_ativo_repository] = lambda: ativo_repository
@@ -138,6 +146,7 @@ def client(
     app.dependency_overrides[get_provedor_llm] = lambda: provedor_llm
     app.dependency_overrides[get_analise_ia_repository] = lambda: analise_repository
     app.dependency_overrides[get_refresh_token_repository] = lambda: refresh_token_repository
+    app.dependency_overrides[get_barramento_notificacoes] = lambda: barramento_notificacoes
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
