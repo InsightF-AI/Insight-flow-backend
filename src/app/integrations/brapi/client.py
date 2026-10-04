@@ -58,6 +58,7 @@ class CotacaoAtual:
     maxima_dia: Decimal
     minima_dia: Decimal
     volume: Decimal
+    abertura: Decimal | None = None
 
 
 @dataclass
@@ -108,6 +109,7 @@ class BrapiClient:
             maxima_dia=Decimal(str(item["regularMarketDayHigh"])),
             minima_dia=Decimal(str(item["regularMarketDayLow"])),
             volume=Decimal(str(item["regularMarketVolume"])),
+            abertura=_decimal_ou_none(item.get("regularMarketOpen")),
         )
 
     def buscar_historico(self, ticker: str, periodo: PeriodoHistorico) -> list[PontoHistorico]:
@@ -119,7 +121,9 @@ class BrapiClient:
         resultados = dados.get("results", [])
         if not resultados:
             raise TickerNaoEncontradoError(ticker)
-        pontos = resultados[0]["data"].get("historicalDataPrice", [])
+        pontos = sorted(
+            resultados[0]["data"].get("historicalDataPrice", []), key=lambda ponto: ponto["date"]
+        )
         return [
             PontoHistorico(
                 data=datetime.fromtimestamp(ponto["date"], tz=UTC),
@@ -145,3 +149,7 @@ class BrapiClient:
             raise BrapiIndisponivelError from exc
 
         return resposta.json()
+
+
+def _decimal_ou_none(valor) -> Decimal | None:
+    return Decimal(str(valor)) if valor is not None else None

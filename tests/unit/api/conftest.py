@@ -125,6 +125,7 @@ def client(
         dados_mercado_service,
         FakeCambioService(taxa=Decimal(1)),
         None,
+        cotacao_repository,
     )
     app.dependency_overrides[get_provedor_llm] = lambda: provedor_llm
     app.dependency_overrides[get_analise_ia_repository] = lambda: analise_repository

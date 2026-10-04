@@ -55,6 +55,7 @@ def _cotacao_atual_para_json(cotacao: CotacaoAtual) -> str:
             "maxima_dia": str(cotacao.maxima_dia),
             "minima_dia": str(cotacao.minima_dia),
             "volume": str(cotacao.volume),
+            "abertura": str(cotacao.abertura) if cotacao.abertura is not None else None,
         }
     )
 
@@ -69,6 +70,7 @@ def _cotacao_atual_de_json(bruto: str) -> CotacaoAtual:
         maxima_dia=Decimal(dados["maxima_dia"]),
         minima_dia=Decimal(dados["minima_dia"]),
         volume=Decimal(dados["volume"]),
+        abertura=Decimal(dados["abertura"]) if dados.get("abertura") is not None else None,
     )
 
 

@@ -1,13 +1,14 @@
 from app.domain.enums.tipo_ativo import TipoAtivo
 
 
-def test_possui_os_cinco_tipos_de_ativo_definidos_na_especificacao():
+def test_possui_os_tipos_da_especificacao_e_o_indice_de_referencia():
     assert {membro.value for membro in TipoAtivo} == {
         "ACAO",
         "FII",
         "ETF",
         "BDR",
         "CRIPTO",
+        "INDICE",
     }
 
 

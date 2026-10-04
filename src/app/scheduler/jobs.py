@@ -24,6 +24,7 @@ from app.repositories.sqlalchemy.operacao_repository import SqlAlchemyOperacaoRe
 from app.repositories.sqlalchemy.sinal_repository import SqlAlchemySinalRepository
 from app.repositories.sqlalchemy.watchlist_repository import SqlAlchemyWatchlistRepository
 from app.scheduler.ciclo import executar_ciclo_monitoramento
+from app.scheduler.indices_referencia import atualizar_indices_referencia
 from app.scheduler.resumo_diario import gerar_resumos_diarios
 from app.services.alerta_service import AlertaService
 from app.services.ativo_service import AtivoService
@@ -54,6 +55,14 @@ def registrar_jobs(scheduler: BackgroundScheduler, settings: Settings) -> None:
         "interval",
         minutes=settings.scheduler_intervalo_cripto_minutos,
         id="ciclo_cripto",
+    )
+    scheduler.add_job(
+        lambda: _executar_indices_referencia(settings),
+        "cron",
+        hour=settings.indices_referencia_hora,
+        minute=settings.indices_referencia_minuto,
+        timezone="America/Sao_Paulo",
+        id="indices_referencia",
     )
     if settings.ai_habilitada and settings.gemini_api_key and settings.ai_provider == "gemini":
         scheduler.add_job(
@@ -140,6 +149,31 @@ def _executar_ciclo(settings: Settings, tipos_ativo: set[TipoAtivo]) -> None:
         session.close()
 
 
+def _executar_indices_referencia(settings: Settings) -> None:
+    session = _session_factory(settings.database_url)()
+    try:
+        brapi_client = BrapiClient(
+            _brapi_http_client(settings.brapi_base_url),
+            settings.brapi_api_key or None,
+        )
+        dados_mercado_service = CachedDadosMercadoService(
+            DadosMercadoService(brapi_client),
+            RedisMercadoCache(_redis_client(settings.redis_url)),
+            ttl_cotacao_atual=settings.cache_ttl_cotacao_atual_segundos,
+        )
+        atualizar_indices_referencia(
+            AtivoService(
+                SqlAlchemyAtivoRepository(session),
+                dados_mercado_service,
+                SqlAlchemyCotacaoRepository(session),
+            ),
+            settings.historico_backfill_periodo,
+            settings.historico_minimo_cotacoes,
+        )
+    finally:
+        session.close()
+
+
 def _executar_resumos_diarios(settings: Settings) -> None:
     session = _session_factory(settings.database_url)()
     try:
@@ -171,6 +205,7 @@ def _executar_resumos_diarios(settings: Settings) -> None:
             dados_mercado_service,
             cambio_service,
             bcb_client,
+            SqlAlchemyCotacaoRepository(session),
         )
         resumo_service = ResumoCarteiraService(
             NotificacaoService(notificacao_repository),

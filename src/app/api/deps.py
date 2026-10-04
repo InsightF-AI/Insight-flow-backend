@@ -243,9 +243,15 @@ def get_portfolio_service(
     dados_mercado_service: DadosMercadoService = Depends(get_dados_mercado_service),
     cambio_service: CambioService = Depends(get_cambio_service),
     bcb_client: BcbClient = Depends(get_bcb_client),
+    cotacao_repository: CotacaoRepository = Depends(get_cotacao_repository),
 ) -> PortfolioService:
     return PortfolioService(
-        operacao_repository, ativo_repository, dados_mercado_service, cambio_service, bcb_client
+        operacao_repository,
+        ativo_repository,
+        dados_mercado_service,
+        cambio_service,
+        bcb_client,
+        cotacao_repository,
     )
 
 
