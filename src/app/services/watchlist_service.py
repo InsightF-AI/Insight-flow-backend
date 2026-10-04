@@ -1,19 +1,25 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from app.domain.entities.ativo import Ativo
 from app.domain.entities.watchlist import Watchlist
+from app.domain.enums.periodo_historico import PeriodoHistorico
+from app.integrations.brapi.client import BrapiIndisponivelError, TickerNaoEncontradoError
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.watchlist_repository import WatchlistRepository
+from app.services.ativo_service import AtivoService
 from app.services.dados_mercado_service import DadosMercadoService
 from app.services.exceptions import (
     AtivoJaNaWatchlistError,
     AtivoNaoEncontradoError,
     ItemWatchlistNaoEncontradoError,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -28,10 +34,16 @@ class WatchlistService:
         watchlist_repository: WatchlistRepository,
         ativo_repository: AtivoRepository,
         dados_mercado_service: DadosMercadoService,
+        ativo_service: AtivoService,
+        periodo_backfill: PeriodoHistorico,
+        minimo_cotacoes: int,
     ):
         self._watchlist_repository = watchlist_repository
         self._ativo_repository = ativo_repository
         self._dados_mercado_service = dados_mercado_service
+        self._ativo_service = ativo_service
+        self._periodo_backfill = periodo_backfill
+        self._minimo_cotacoes = minimo_cotacoes
 
     def adicionar(self, usuario_id: UUID, ticker: str) -> ItemWatchlist:
         ticker = ticker.upper()
@@ -47,6 +59,7 @@ class WatchlistService:
             id=uuid4(), usuario_id=usuario_id, ativo_id=ativo.id, adicionado_em=datetime.now(UTC)
         )
         self._watchlist_repository.salvar(item)
+        self._coletar_historico(ativo)
         return ItemWatchlist(ativo=ativo, watchlist=item)
 
     def remover(self, usuario_id: UUID, ativo_id: UUID) -> None:
@@ -72,6 +85,14 @@ class WatchlistService:
         return ItemWatchlist(
             ativo=self._ativo_repository.buscar_por_id(item.ativo_id), watchlist=item
         )
+
+    def _coletar_historico(self, ativo: Ativo) -> None:
+        try:
+            self._ativo_service.atualizar_historico(
+                ativo.id, self._periodo_backfill, self._minimo_cotacoes
+            )
+        except (BrapiIndisponivelError, TickerNaoEncontradoError):
+            logger.warning("Falha ao coletar historico inicial de %s.", ativo.ticker, exc_info=True)
 
     def _buscar_item(self, usuario_id: UUID, ativo_id: UUID) -> Watchlist:
         item = self._watchlist_repository.buscar_por_usuario_e_ativo(usuario_id, ativo_id)

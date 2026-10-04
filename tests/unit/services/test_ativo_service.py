@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -146,3 +146,48 @@ def test_historico_nao_persiste_quando_nao_ha_pontos():
     service.historico(_PETR4.id, PeriodoHistorico.UM_MES)
 
     assert cotacao_repository.listar_por_ativo(_PETR4.id) == []
+
+
+def _pontos(quantidade: int) -> list[PontoHistorico]:
+    return [
+        PontoHistorico(
+            data=datetime(2026, 1, 1, tzinfo=UTC) + timedelta(days=i),
+            abertura=Decimal("36.00"),
+            maxima=Decimal("37.00"),
+            minima=Decimal("35.50"),
+            fechamento=Decimal("36.50"),
+            volume=Decimal(1000),
+        )
+        for i in range(quantidade)
+    ]
+
+
+def test_atualizar_historico_com_poucas_cotacoes_busca_periodo_de_backfill():
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_PETR4)
+    dados_mercado_service = FakeDadosMercadoService(historicos={"PETR4": _pontos(63)})
+    cotacao_repository = FakeCotacaoRepository()
+    service = _service(ativo_repository, dados_mercado_service, cotacao_repository)
+
+    service.atualizar_historico(
+        _PETR4.id, periodo_backfill=PeriodoHistorico.TRES_MESES, minimo_cotacoes=50
+    )
+
+    assert dados_mercado_service.historicos_solicitados == [("PETR4", PeriodoHistorico.TRES_MESES)]
+    assert len(cotacao_repository.listar_por_ativo(_PETR4.id)) == 63
+
+
+def test_atualizar_historico_com_cotacoes_suficientes_busca_apenas_um_mes():
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_PETR4)
+    dados_mercado_service = FakeDadosMercadoService(historicos={"PETR4": _pontos(50)})
+    cotacao_repository = FakeCotacaoRepository()
+    service = _service(ativo_repository, dados_mercado_service, cotacao_repository)
+    service.historico(_PETR4.id, PeriodoHistorico.TRES_MESES)
+    dados_mercado_service.historicos_solicitados.clear()
+
+    service.atualizar_historico(
+        _PETR4.id, periodo_backfill=PeriodoHistorico.TRES_MESES, minimo_cotacoes=50
+    )
+
+    assert dados_mercado_service.historicos_solicitados == [("PETR4", PeriodoHistorico.UM_MES)]

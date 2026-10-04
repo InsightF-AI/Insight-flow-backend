@@ -2,6 +2,8 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.domain.enums.periodo_historico import PeriodoHistorico
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -16,6 +18,9 @@ class Settings(BaseSettings):
 
     redis_url: str = "redis://localhost:6381/0"
     cache_ttl_cotacao_atual_segundos: int = 60
+
+    historico_backfill_periodo: PeriodoHistorico = PeriodoHistorico.TRES_MESES
+    historico_minimo_cotacoes: int = 50
 
     bcb_base_url: str = "https://api.bcb.gov.br"
     cache_ttl_cambio_segundos: int = 21600

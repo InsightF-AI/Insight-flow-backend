@@ -118,6 +118,8 @@ def _executar_ciclo(settings: Settings, tipos_ativo: set[TipoAtivo]) -> None:
             ),
             SinalService(ativo_repository, cotacao_repository, indicador_service, sinal_repository),
             NotificacaoService(notificacao_repository),
+            periodo_backfill=settings.historico_backfill_periodo,
+            minimo_cotacoes=settings.historico_minimo_cotacoes,
             ao_falhar_ativo=session.rollback,
         )
     finally:
