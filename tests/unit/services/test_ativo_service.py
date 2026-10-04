@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
@@ -87,17 +88,10 @@ def test_cotacao_atual_com_ativo_inexistente_lanca_erro():
         service.cotacao_atual(uuid4())
 
 
-def test_historico_resolve_o_ticker_e_delega_para_dados_mercado():
+def test_historico_de_um_mes_devolve_os_pontos_persistidos_do_periodo():
     ativo_repository = FakeAtivoRepository()
     ativo_repository.salvar(_PETR4)
-    ponto = PontoHistorico(
-        data=datetime(2024, 1, 1, tzinfo=UTC),
-        abertura=Decimal(35),
-        maxima=Decimal(36),
-        minima=Decimal("34.5"),
-        fechamento=Decimal("35.8"),
-        volume=Decimal(1000000),
-    )
+    ponto = _ponto_dias_atras(1, "35.8")
     dados_mercado_service = FakeDadosMercadoService(historicos={"PETR4": [ponto]})
     service = _service(ativo_repository, dados_mercado_service)
 
@@ -206,7 +200,10 @@ def test_historico_de_um_ano_atualiza_tres_meses_e_le_do_banco_dentro_do_corte()
 
     resultado = service.historico(_PETR4.id, PeriodoHistorico.UM_ANO)
 
-    assert dados_mercado_service.historicos_solicitados == [("PETR4", PeriodoHistorico.TRES_MESES)]
+    assert dados_mercado_service.historicos_solicitados == [
+        ("PETR4", PeriodoHistorico.TRES_MESES),
+        ("PETR4", PeriodoHistorico.UMA_SEMANA),
+    ]
     assert [p.fechamento for p in resultado] == [Decimal(35), Decimal(40)]
 
 
@@ -268,7 +265,7 @@ def test_atualizar_historico_com_poucas_cotacoes_busca_periodo_de_backfill():
     assert len(cotacao_repository.listar_por_ativo(_PETR4.id)) == 63
 
 
-def test_atualizar_historico_com_cotacoes_suficientes_busca_apenas_um_mes():
+def test_atualizar_historico_com_cotacoes_suficientes_busca_apenas_a_ultima_semana():
     ativo_repository = FakeAtivoRepository()
     ativo_repository.salvar(_PETR4)
     dados_mercado_service = FakeDadosMercadoService(historicos={"PETR4": _pontos(50)})
@@ -279,7 +276,7 @@ def test_atualizar_historico_com_cotacoes_suficientes_busca_apenas_um_mes():
 
     service.atualizar_historico(_PETR4.id, _POLITICA)
 
-    assert dados_mercado_service.historicos_solicitados == [("PETR4", PeriodoHistorico.UM_MES)]
+    assert dados_mercado_service.historicos_solicitados == [("PETR4", PeriodoHistorico.UMA_SEMANA)]
 
 
 def test_buscar_ou_criar_indice_cria_o_ativo_de_referencia_uma_unica_vez():
@@ -337,3 +334,41 @@ def test_atualizar_historico_de_cripto_com_poucas_cotacoes_busca_cinco_anos_e_pe
 
     assert dados_mercado_service.historicos_solicitados == [("BTC", PeriodoHistorico.CINCO_ANOS)]
     assert len(cotacao_repository.listar_por_ativo(_BTC.id)) == 2
+
+
+def test_historico_de_tres_meses_junta_o_consolidado_com_a_ultima_semana_fresca():
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_PETR4)
+    antigo = _ponto_dias_atras(60, "100")
+    ontem_consolidado = _ponto_dias_atras(1, "110")
+    ontem_fresco = replace(ontem_consolidado, fechamento=Decimal(111))
+    hoje = _ponto_dias_atras(0, "112")
+    dados_mercado_service = FakeDadosMercadoService(
+        historicos_por_periodo={
+            ("PETR4", PeriodoHistorico.TRES_MESES): [antigo, ontem_consolidado],
+            ("PETR4", PeriodoHistorico.UMA_SEMANA): [ontem_fresco, hoje],
+        }
+    )
+    service = _service(ativo_repository, dados_mercado_service)
+
+    resultado = service.historico(_PETR4.id, PeriodoHistorico.TRES_MESES)
+
+    assert dados_mercado_service.historicos_solicitados == [
+        ("PETR4", PeriodoHistorico.TRES_MESES),
+        ("PETR4", PeriodoHistorico.UMA_SEMANA),
+    ]
+    assert [p.fechamento for p in resultado] == [Decimal(100), Decimal(111), Decimal(112)]
+
+
+def test_historico_de_uma_semana_faz_uma_unica_busca():
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_PETR4)
+    dados_mercado_service = FakeDadosMercadoService(
+        historicos={"PETR4": [_ponto_dias_atras(20, "90"), _ponto_dias_atras(2, "100")]}
+    )
+    service = _service(ativo_repository, dados_mercado_service)
+
+    resultado = service.historico(_PETR4.id, PeriodoHistorico.UMA_SEMANA)
+
+    assert dados_mercado_service.historicos_solicitados == [("PETR4", PeriodoHistorico.UMA_SEMANA)]
+    assert [p.fechamento for p in resultado] == [Decimal(100)]
