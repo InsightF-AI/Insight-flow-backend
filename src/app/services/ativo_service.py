@@ -41,6 +41,13 @@ class AtivoService:
             )
         return pontos
 
+    def atualizar_historico(
+        self, ativo_id: UUID, periodo_backfill: PeriodoHistorico, minimo_cotacoes: int
+    ) -> None:
+        persistidas = len(self._cotacao_repository.listar_por_ativo(ativo_id))
+        periodo = periodo_backfill if persistidas < minimo_cotacoes else PeriodoHistorico.UM_MES
+        self.historico(ativo_id, periodo)
+
     @staticmethod
     def _para_cotacao(ativo_id: UUID, ponto: PontoHistorico) -> Cotacao:
         return Cotacao(

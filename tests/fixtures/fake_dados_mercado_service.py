@@ -23,6 +23,7 @@ class FakeDadosMercadoService(DadosMercadoService):
         self._cotacoes = cotacoes if cotacoes is not None else {}
         self._historicos = historicos if historicos is not None else {}
         self.indisponivel = indisponivel
+        self.historicos_solicitados: list[tuple[str, PeriodoHistorico]] = []
 
     def buscar_ativo(self, termo: str) -> list[AtivoEncontrado]:
         if self.indisponivel:
@@ -43,6 +44,7 @@ class FakeDadosMercadoService(DadosMercadoService):
         return self._cotacoes[ticker]
 
     def buscar_historico(self, ticker: str, periodo: PeriodoHistorico) -> list[PontoHistorico]:
+        self.historicos_solicitados.append((ticker, periodo))
         if self.indisponivel:
             raise BrapiIndisponivelError
         if ticker not in self._historicos:

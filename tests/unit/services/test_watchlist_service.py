@@ -1,9 +1,13 @@
+from datetime import UTC, datetime
+from decimal import Decimal
 from uuid import uuid4
 
 import pytest
 
+from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.domain.enums.tipo_ativo import TipoAtivo
-from app.integrations.brapi.client import AtivoEncontrado, BrapiIndisponivelError
+from app.integrations.brapi.client import AtivoEncontrado, BrapiIndisponivelError, PontoHistorico
+from app.services.ativo_service import AtivoService
 from app.services.exceptions import (
     AtivoJaNaWatchlistError,
     AtivoNaoEncontradoError,
@@ -11,6 +15,7 @@ from app.services.exceptions import (
 )
 from app.services.watchlist_service import WatchlistService
 from tests.fixtures.fake_ativo_repository import FakeAtivoRepository
+from tests.fixtures.fake_cotacao_repository import FakeCotacaoRepository
 from tests.fixtures.fake_dados_mercado_service import FakeDadosMercadoService
 from tests.fixtures.fake_watchlist_repository import FakeWatchlistRepository
 
@@ -19,9 +24,32 @@ _PETR4 = AtivoEncontrado(
 )
 
 
-def _service(catalogo: list[AtivoEncontrado] | None = None) -> WatchlistService:
+_PONTO_PETR4 = PontoHistorico(
+    data=datetime(2026, 9, 1, tzinfo=UTC),
+    abertura=Decimal("36.00"),
+    maxima=Decimal("37.00"),
+    minima=Decimal("35.50"),
+    fechamento=Decimal("36.50"),
+    volume=Decimal(1000),
+)
+
+
+def _service(
+    catalogo: list[AtivoEncontrado] | None = None,
+    dados_mercado_service: FakeDadosMercadoService | None = None,
+    cotacao_repository: FakeCotacaoRepository | None = None,
+) -> WatchlistService:
+    ativo_repository = FakeAtivoRepository()
+    dados_mercado_service = dados_mercado_service or FakeDadosMercadoService(catalogo)
     return WatchlistService(
-        FakeWatchlistRepository(), FakeAtivoRepository(), FakeDadosMercadoService(catalogo)
+        FakeWatchlistRepository(),
+        ativo_repository,
+        dados_mercado_service,
+        AtivoService(
+            ativo_repository, dados_mercado_service, cotacao_repository or FakeCotacaoRepository()
+        ),
+        periodo_backfill=PeriodoHistorico.TRES_MESES,
+        minimo_cotacoes=50,
     )
 
 
@@ -65,11 +93,7 @@ def test_adicionar_reaproveita_ativo_ja_persistido_com_ticker_em_outra_caixa():
 
 
 def test_adicionar_com_brapi_indisponivel_propaga_o_erro():
-    service = WatchlistService(
-        FakeWatchlistRepository(),
-        FakeAtivoRepository(),
-        FakeDadosMercadoService(indisponivel=True),
-    )
+    service = _service(dados_mercado_service=FakeDadosMercadoService(indisponivel=True))
 
     with pytest.raises(BrapiIndisponivelError):
         service.adicionar(usuario_id=uuid4(), ticker="PETR4")
@@ -144,3 +168,25 @@ def test_definir_notificacao_em_item_inexistente_lanca_erro():
 
     with pytest.raises(ItemWatchlistNaoEncontradoError):
         service.definir_notificacao(uuid4(), uuid4(), notificar=False)
+
+
+def test_adicionar_coleta_o_historico_de_backfill_do_ativo():
+    dados_mercado_service = FakeDadosMercadoService([_PETR4], historicos={"PETR4": [_PONTO_PETR4]})
+    cotacao_repository = FakeCotacaoRepository()
+    service = _service(
+        dados_mercado_service=dados_mercado_service, cotacao_repository=cotacao_repository
+    )
+
+    item = service.adicionar(usuario_id=uuid4(), ticker="PETR4")
+
+    assert dados_mercado_service.historicos_solicitados == [("PETR4", PeriodoHistorico.TRES_MESES)]
+    assert len(cotacao_repository.listar_por_ativo(item.ativo.id)) == 1
+
+
+def test_adicionar_mantem_o_item_quando_a_coleta_de_historico_falha():
+    service = _service([_PETR4])
+    usuario_id = uuid4()
+
+    item = service.adicionar(usuario_id=usuario_id, ticker="PETR4")
+
+    assert [i.ativo.id for i in service.listar(usuario_id)] == [item.ativo.id]

@@ -207,8 +207,17 @@ def get_watchlist_service(
     watchlist_repository: WatchlistRepository = Depends(get_watchlist_repository),
     ativo_repository: AtivoRepository = Depends(get_ativo_repository),
     dados_mercado_service: DadosMercadoService = Depends(get_dados_mercado_service),
+    ativo_service: AtivoService = Depends(get_ativo_service),
+    settings: Settings = Depends(get_settings),
 ) -> WatchlistService:
-    return WatchlistService(watchlist_repository, ativo_repository, dados_mercado_service)
+    return WatchlistService(
+        watchlist_repository,
+        ativo_repository,
+        dados_mercado_service,
+        ativo_service,
+        periodo_backfill=settings.historico_backfill_periodo,
+        minimo_cotacoes=settings.historico_minimo_cotacoes,
+    )
 
 
 def get_alerta_service(

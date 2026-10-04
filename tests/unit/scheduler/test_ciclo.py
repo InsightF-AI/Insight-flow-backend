@@ -7,6 +7,7 @@ from app.domain.entities.alerta_personalizado import AlertaPersonalizado
 from app.domain.entities.ativo import Ativo
 from app.domain.entities.sinal import Sinal
 from app.domain.entities.watchlist import Watchlist
+from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.domain.enums.tipo_ativo import TipoAtivo
 from app.domain.enums.tipo_condicao_alerta import TipoCondicaoAlerta
 from app.domain.enums.tipo_notificacao import TipoNotificacao
@@ -76,7 +77,7 @@ def _construir_ciclo(dados_mercado_service: FakeDadosMercadoService | None = Non
     )
 
 
-def _executar(ciclo: _Ciclo, tipos_ativo: set[TipoAtivo]) -> None:
+def _executar(ciclo: _Ciclo, tipos_ativo: set[TipoAtivo], minimo_cotacoes: int = 50) -> None:
     executar_ciclo_monitoramento(
         tipos_ativo,
         ciclo.ativo_repository,
@@ -88,6 +89,8 @@ def _executar(ciclo: _Ciclo, tipos_ativo: set[TipoAtivo]) -> None:
         ciclo.alerta_service,
         ciclo.sinal_service,
         ciclo.notificacao_service,
+        periodo_backfill=PeriodoHistorico.TRES_MESES,
+        minimo_cotacoes=minimo_cotacoes,
     )
 
 
@@ -294,7 +297,49 @@ def test_falha_em_ativo_invoca_callback_ao_falhar_ativo():
         ciclo.alerta_service,
         ciclo.sinal_service,
         ciclo.notificacao_service,
+        periodo_backfill=PeriodoHistorico.TRES_MESES,
+        minimo_cotacoes=50,
         ao_falhar_ativo=_ao_falhar_ativo,
     )
 
     assert chamadas == 1
+
+
+def _ativo_em_watchlist(ciclo: _Ciclo) -> Ativo:
+    ativo = _ativo()
+    ciclo.ativo_repository.salvar(ativo)
+    ciclo.watchlist_repository.salvar(
+        Watchlist.adicionar(
+            id=uuid4(), usuario_id=uuid4(), ativo_id=ativo.id, adicionado_em=datetime.now(UTC)
+        )
+    )
+    return ativo
+
+
+def test_ativo_em_watchlist_com_poucas_cotacoes_coleta_periodo_de_backfill():
+    dados_mercado_service = FakeDadosMercadoService(
+        cotacoes={"PETR4": _cotacao("PETR4", "20.00")},
+        historicos={"PETR4": _historico_rsi_baixo()},
+    )
+    ciclo = _construir_ciclo(dados_mercado_service)
+    _ativo_em_watchlist(ciclo)
+
+    _executar(ciclo, {TipoAtivo.ACAO})
+
+    assert dados_mercado_service.historicos_solicitados == [("PETR4", PeriodoHistorico.TRES_MESES)]
+
+
+def test_ativo_em_watchlist_com_cotacoes_suficientes_coleta_apenas_um_mes():
+    historico = _historico_rsi_baixo()
+    dados_mercado_service = FakeDadosMercadoService(
+        cotacoes={"PETR4": _cotacao("PETR4", "20.00")},
+        historicos={"PETR4": historico},
+    )
+    ciclo = _construir_ciclo(dados_mercado_service)
+    ativo = _ativo_em_watchlist(ciclo)
+    ciclo.ativo_service.historico(ativo.id, PeriodoHistorico.TRES_MESES)
+    dados_mercado_service.historicos_solicitados.clear()
+
+    _executar(ciclo, {TipoAtivo.ACAO}, minimo_cotacoes=len(historico))
+
+    assert dados_mercado_service.historicos_solicitados == [("PETR4", PeriodoHistorico.UM_MES)]
