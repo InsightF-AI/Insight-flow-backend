@@ -305,3 +305,25 @@ def test_avaliar_alertas_pula_alerta_quando_cambio_indisponivel_e_continua_o_lot
 
     assert len(disparados) == 1
     assert disparados[0].id == item_sem_conversao.alerta.id
+
+
+def test_criar_alerta_grava_a_fonte_de_dados_informada_pela_busca():
+    btc = AtivoEncontrado(
+        ticker="BTC",
+        nome="BTC",
+        tipo=TipoAtivo.CRIPTO,
+        moeda="BRL",
+        setor=None,
+        fonte_dados="binance",
+    )
+    service = _service([btc])
+
+    item = service.criar_alerta(
+        usuario_id=uuid4(),
+        ticker="BTC",
+        tipo_condicao=TipoCondicaoAlerta.PRECO_MAIOR_IGUAL,
+        valor_alvo=Decimal(500000),
+    )
+
+    assert item.ativo.fonte_dados == "binance"
+    assert item.ativo.tipo is TipoAtivo.CRIPTO

@@ -7,11 +7,10 @@ from app.domain.entities.ativo import Ativo
 from app.domain.entities.cotacao import Cotacao
 from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.domain.enums.tipo_ativo import TipoAtivo
+from app.domain.value_objects.politica_historico import PoliticaHistorico
 from app.integrations.brapi.client import (
-    INTERVALO_DIARIO,
     CotacaoAtual,
     PontoHistorico,
-    intervalo_de,
 )
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.cotacao_repository import CotacaoRepository
@@ -65,17 +64,19 @@ class AtivoService:
         self._ativo_repository.salvar(ativo)
         return ativo
 
-    def atualizar_historico(
-        self, ativo_id: UUID, periodo_backfill: PeriodoHistorico, minimo_cotacoes: int
-    ) -> None:
+    def atualizar_historico(self, ativo_id: UUID, politica: PoliticaHistorico) -> None:
         ativo = self._buscar_ativo(ativo_id)
         persistidas = len(self._cotacao_repository.listar_por_ativo(ativo.id))
-        periodo = periodo_backfill if persistidas < minimo_cotacoes else PeriodoHistorico.UM_MES
+        periodo = (
+            politica.periodo_backfill_de(ativo.tipo)
+            if persistidas < politica.minimo_cotacoes
+            else PeriodoHistorico.UM_MES
+        )
         self._coletar_historico(ativo, periodo)
 
     def _coletar_historico(self, ativo: Ativo, periodo: PeriodoHistorico) -> list[PontoHistorico]:
         pontos = self._dados_mercado_service.buscar_historico(ativo.ticker, periodo)
-        if intervalo_de(periodo) == INTERVALO_DIARIO:
+        if self._dados_mercado_service.historico_e_diario(ativo.ticker, periodo):
             self._cotacao_repository.salvar_muitas(
                 [self._para_cotacao(ativo.id, ponto) for ponto in pontos]
             )

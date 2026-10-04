@@ -7,9 +7,9 @@ from app.integrations.brapi.client import (
     INTERVALO_DIARIO,
     BrapiClient,
     BrapiIndisponivelError,
-    TickerNaoEncontradoError,
     intervalo_de,
 )
+from app.integrations.erros import TickerNaoEncontradoError
 
 
 def _client(handler, api_key: str | None = None) -> BrapiClient:

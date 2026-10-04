@@ -4,7 +4,9 @@ from uuid import uuid4
 
 from app.domain.entities.ativo import Ativo
 from app.domain.enums.tipo_ativo import TipoAtivo
+from app.integrations.binance.client import BinanceIndisponivelError
 from app.integrations.brapi.client import CotacaoAtual, PontoHistorico
+from app.integrations.erros import FonteDadosIndisponivelError
 
 _PETR4 = Ativo(
     id=uuid4(),
@@ -121,3 +123,27 @@ def test_historico_sem_serie_disponivel_retorna_404(client, auth_headers, ativo_
     )
 
     assert resposta.status_code == 404
+
+
+def test_cotacao_atual_com_qualquer_fonte_indisponivel_retorna_503(
+    client, auth_headers, ativo_repository, dados_mercado_service
+):
+    ativo_repository.salvar(_PETR4)
+    dados_mercado_service.indisponivel = True
+    dados_mercado_service.erro_indisponivel = FonteDadosIndisponivelError
+
+    resposta = client.get(f"/api/v1/ativos/{_PETR4.id}/cotacao", headers=auth_headers)
+
+    assert resposta.status_code == 503
+
+
+def test_cotacao_atual_com_binance_indisponivel_retorna_503(
+    client, auth_headers, ativo_repository, dados_mercado_service
+):
+    ativo_repository.salvar(_PETR4)
+    dados_mercado_service.indisponivel = True
+    dados_mercado_service.erro_indisponivel = BinanceIndisponivelError
+
+    resposta = client.get(f"/api/v1/ativos/{_PETR4.id}/cotacao", headers=auth_headers)
+
+    assert resposta.status_code == 503

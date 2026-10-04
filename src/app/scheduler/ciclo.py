@@ -5,8 +5,8 @@ from collections.abc import Callable
 from uuid import UUID
 
 from app.domain.entities.ativo import Ativo
-from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.domain.enums.tipo_ativo import TipoAtivo
+from app.domain.value_objects.politica_historico import PoliticaHistorico
 from app.repositories.interfaces.alerta_repository import AlertaRepository
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.sinal_repository import SinalRepository
@@ -31,8 +31,7 @@ def executar_ciclo_monitoramento(
     alerta_service: AlertaService,
     sinal_service: SinalService,
     notificacao_service: NotificacaoService,
-    periodo_backfill: PeriodoHistorico,
-    minimo_cotacoes: int,
+    politica: PoliticaHistorico,
     ao_falhar_ativo: Callable[[], None] | None = None,
 ) -> None:
     ids_com_watchlist = set(watchlist_repository.listar_ativos_distintos_ativos())
@@ -55,8 +54,7 @@ def executar_ciclo_monitoramento(
                 alerta_service=alerta_service,
                 sinal_service=sinal_service,
                 notificacao_service=notificacao_service,
-                periodo_backfill=periodo_backfill,
-                minimo_cotacoes=minimo_cotacoes,
+                politica=politica,
             )
         except Exception:
             logger.warning(
@@ -77,8 +75,7 @@ def _processar_ativo(
     alerta_service: AlertaService,
     sinal_service: SinalService,
     notificacao_service: NotificacaoService,
-    periodo_backfill: PeriodoHistorico,
-    minimo_cotacoes: int,
+    politica: PoliticaHistorico,
 ) -> None:
     cotacao = dados_mercado_service.buscar_cotacao_atual(ativo.ticker)
 
@@ -94,7 +91,7 @@ def _processar_ativo(
         if sinal.data_desativacao is None
     }
 
-    ativo_service.atualizar_historico(ativo_id, periodo_backfill, minimo_cotacoes)
+    ativo_service.atualizar_historico(ativo_id, politica)
     vigentes = sinal_service.avaliar_ativo(ativo_id)
     novos = [sinal for sinal in vigentes if sinal.regra_id not in vigentes_antes]
     if not novos:

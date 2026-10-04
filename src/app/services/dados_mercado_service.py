@@ -1,7 +1,14 @@
 from __future__ import annotations
 
 from app.domain.enums.periodo_historico import PeriodoHistorico
-from app.integrations.brapi.client import AtivoEncontrado, BrapiClient, CotacaoAtual, PontoHistorico
+from app.integrations.brapi.client import (
+    INTERVALO_DIARIO,
+    AtivoEncontrado,
+    BrapiClient,
+    CotacaoAtual,
+    PontoHistorico,
+    intervalo_de,
+)
 
 
 class DadosMercadoService:
@@ -16,3 +23,6 @@ class DadosMercadoService:
 
     def buscar_historico(self, ticker: str, periodo: PeriodoHistorico) -> list[PontoHistorico]:
         return self._brapi_client.buscar_historico(ticker, periodo)
+
+    def historico_e_diario(self, ticker: str, periodo: PeriodoHistorico) -> bool:
+        return intervalo_de(periodo) == INTERVALO_DIARIO

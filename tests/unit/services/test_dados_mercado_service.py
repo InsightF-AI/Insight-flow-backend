@@ -79,3 +79,11 @@ def test_buscar_historico_delega_para_o_cliente_brapi():
 
     assert resultado == [ponto]
     assert brapi_client.chamadas["buscar_historico"] == ("PETR4", PeriodoHistorico.UM_MES)
+
+
+def test_historico_e_diario_segue_o_intervalo_da_brapi():
+    service = DadosMercadoService(brapi_client=None)
+
+    assert service.historico_e_diario("PETR4", PeriodoHistorico.TRES_MESES) is True
+    assert service.historico_e_diario("PETR4", PeriodoHistorico.CINCO_ANOS) is False
+    assert service.historico_e_diario("PETR4", PeriodoHistorico.UM_DIA) is False

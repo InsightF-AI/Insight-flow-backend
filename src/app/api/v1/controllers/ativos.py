@@ -16,7 +16,7 @@ from app.api.v1.schemas.sinal import ResultadoBacktestResponse, SinalResponse
 from app.domain.entities.usuario import Usuario
 from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.domain.regras_sinal_padrao import buscar_regra_por_id
-from app.integrations.brapi.client import BrapiIndisponivelError, TickerNaoEncontradoError
+from app.integrations.erros import FonteDadosIndisponivelError, TickerNaoEncontradoError
 from app.services.ativo_service import AtivoService
 from app.services.dados_mercado_service import DadosMercadoService
 from app.services.exceptions import AtivoNaoEncontradoError, RegraNaoEncontradaError
@@ -34,7 +34,7 @@ def buscar(
 ) -> list[AtivoEncontradoResponse]:
     try:
         encontrados = service.buscar_ativo(termo)
-    except BrapiIndisponivelError as exc:
+    except FonteDadosIndisponivelError as exc:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE, "Fonte de dados de mercado indisponivel"
         ) from exc
@@ -56,7 +56,7 @@ def cotacao_atual(
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, "Cotacao nao encontrada para o ativo"
         ) from exc
-    except BrapiIndisponivelError as exc:
+    except FonteDadosIndisponivelError as exc:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE, "Fonte de dados de mercado indisponivel"
         ) from exc
@@ -79,7 +79,7 @@ def historico(
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, "Historico nao encontrado para o ativo"
         ) from exc
-    except BrapiIndisponivelError as exc:
+    except FonteDadosIndisponivelError as exc:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE, "Fonte de dados de mercado indisponivel"
         ) from exc

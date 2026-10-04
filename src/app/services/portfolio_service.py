@@ -17,7 +17,7 @@ from app.domain.value_objects.distribuicao import Distribuicao
 from app.domain.value_objects.posicao import Posicao
 from app.domain.value_objects.rentabilidade import Rentabilidade
 from app.integrations.bcb.client import BcbClient, BcbIndisponivelError
-from app.integrations.brapi.client import BrapiIndisponivelError, TickerNaoEncontradoError
+from app.integrations.erros import FonteDadosIndisponivelError, TickerNaoEncontradoError
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.cotacao_repository import CotacaoRepository
 from app.repositories.interfaces.operacao_repository import OperacaoRepository
@@ -144,7 +144,7 @@ class PortfolioService:
             ativo = self._ativo_repository.buscar_por_id(ativo_id)
             try:
                 cotacao = self._dados_mercado_service.buscar_cotacao_atual(ativo.ticker)
-            except (BrapiIndisponivelError, TickerNaoEncontradoError):
+            except (FonteDadosIndisponivelError, TickerNaoEncontradoError):
                 logger.warning(
                     "Cotacao indisponivel para %s; ativo omitido das posicoes.", ativo.ticker
                 )
@@ -187,7 +187,7 @@ class PortfolioService:
             custo_base_brl += self._cambio_service.converter(custo_base, de=ativo.moeda, para="BRL")
             try:
                 cotacao = self._dados_mercado_service.buscar_cotacao_atual(ativo.ticker)
-            except (BrapiIndisponivelError, TickerNaoEncontradoError):
+            except (FonteDadosIndisponivelError, TickerNaoEncontradoError):
                 logger.warning(
                     "Cotacao indisponivel para %s; excluido da rentabilidade.", ativo.ticker
                 )
@@ -265,7 +265,7 @@ class PortfolioService:
         ibovespa = self._ativo_service.buscar_ou_criar_indice(IBOVESPA_TICKER, IBOVESPA_NOME)
         try:
             pontos = self._ativo_service.historico(ibovespa.id, _periodo_desde(data_inicio))
-        except (BrapiIndisponivelError, TickerNaoEncontradoError):
+        except (FonteDadosIndisponivelError, TickerNaoEncontradoError):
             logger.warning("Ibovespa indisponivel; comparativo de benchmark sem Ibovespa.")
             return None
 

@@ -8,6 +8,7 @@ import httpx
 
 from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.domain.enums.tipo_ativo import TipoAtivo
+from app.integrations.erros import FonteDadosIndisponivelError, TickerNaoEncontradoError
 
 _MAPA_SUBTYPE: dict[str, TipoAtivo] = {
     "stock": TipoAtivo.ACAO,
@@ -32,11 +33,7 @@ def intervalo_de(periodo: PeriodoHistorico) -> str:
     return _MAPA_PERIODO[periodo][1]
 
 
-class BrapiIndisponivelError(Exception):
-    pass
-
-
-class TickerNaoEncontradoError(Exception):
+class BrapiIndisponivelError(FonteDadosIndisponivelError):
     pass
 
 
@@ -47,6 +44,7 @@ class AtivoEncontrado:
     tipo: TipoAtivo
     moeda: str
     setor: str | None
+    fonte_dados: str = "brapi"
 
 
 @dataclass

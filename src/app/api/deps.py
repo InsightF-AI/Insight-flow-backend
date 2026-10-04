@@ -15,6 +15,7 @@ from app.core.security import TokenInvalidoError, decodificar_token
 from app.db.session import criar_session_factory
 from app.domain.entities.usuario import Usuario
 from app.integrations.bcb.client import BcbClient
+from app.integrations.binance.client import BinanceClient
 from app.integrations.brapi.client import BrapiClient
 from app.repositories.interfaces.alerta_repository import AlertaRepository
 from app.repositories.interfaces.analise_ia_repository import AnaliseIARepository
@@ -52,6 +53,7 @@ from app.services.mercado_cache import MercadoCache
 from app.services.notificacao_service import NotificacaoService
 from app.services.portfolio_service import PortfolioService
 from app.services.redis_mercado_cache import RedisMercadoCache
+from app.services.roteador_dados_mercado_service import RoteadorDadosMercadoService
 from app.services.sinal_service import SinalService
 from app.services.usuario_service import UsuarioService
 from app.services.watchlist_service import WatchlistService
@@ -153,13 +155,28 @@ def get_mercado_cache(settings: Settings = Depends(get_settings)) -> MercadoCach
     return RedisMercadoCache(_redis_client(settings.redis_url))
 
 
+@lru_cache
+def _binance_http_client(base_url: str) -> httpx.Client:
+    return httpx.Client(base_url=base_url, timeout=10.0)
+
+
+def get_binance_client(settings: Settings = Depends(get_settings)) -> BinanceClient:
+    return BinanceClient(_binance_http_client(settings.binance_base_url))
+
+
 def get_dados_mercado_service(
     brapi_client: BrapiClient = Depends(get_brapi_client),
+    binance_client: BinanceClient = Depends(get_binance_client),
     mercado_cache: MercadoCache = Depends(get_mercado_cache),
     settings: Settings = Depends(get_settings),
 ) -> DadosMercadoService:
     return CachedDadosMercadoService(
-        DadosMercadoService(brapi_client),
+        RoteadorDadosMercadoService(
+            DadosMercadoService(brapi_client),
+            binance_client,
+            mercado_cache,
+            ttl_catalogo_segundos=settings.cache_ttl_catalogo_cripto_segundos,
+        ),
         mercado_cache,
         ttl_cotacao_atual=settings.cache_ttl_cotacao_atual_segundos,
     )
@@ -215,8 +232,7 @@ def get_watchlist_service(
         ativo_repository,
         dados_mercado_service,
         ativo_service,
-        periodo_backfill=settings.historico_backfill_periodo,
-        minimo_cotacoes=settings.historico_minimo_cotacoes,
+        politica=settings.politica_historico(),
     )
 
 

@@ -1,4 +1,5 @@
 from app.core.config import Settings
+from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.services.exceptions import (
     ContextoInsuficienteError,
     LLMCotaExcedidaError,
@@ -36,3 +37,22 @@ def test_excecoes_de_ia_sao_distintas():
     assert not issubclass(LLMCotaExcedidaError, LLMIndisponivelError)
     assert issubclass(RespostaViolaGuardrailError, Exception)
     assert issubclass(ContextoInsuficienteError, Exception)
+
+
+def test_politica_historico_usa_os_valores_configurados():
+    settings = Settings(
+        _env_file=None,
+        historico_backfill_periodo=PeriodoHistorico.UM_MES,
+        historico_backfill_periodo_cripto=PeriodoHistorico.UM_ANO,
+        historico_minimo_cotacoes=30,
+    )
+
+    politica = settings.politica_historico()
+
+    assert politica.periodo_backfill is PeriodoHistorico.UM_MES
+    assert politica.periodo_backfill_cripto is PeriodoHistorico.UM_ANO
+    assert politica.minimo_cotacoes == 30
+
+
+def test_backfill_de_cripto_padrao_e_cinco_anos():
+    assert Settings(_env_file=None).historico_backfill_periodo_cripto is PeriodoHistorico.CINCO_ANOS
