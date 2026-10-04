@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.controllers.alertas import router as alertas_router
 from app.api.v1.controllers.analise_ia import router as analise_ia_router
@@ -28,6 +29,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="InsightFlow AI - Backend", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_settings().cors_origens,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 app.include_router(usuarios_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(watchlist_router, prefix="/api/v1")
