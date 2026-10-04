@@ -10,8 +10,12 @@ def _ids(settings: Settings) -> set[str]:
     return {job.id for job in scheduler.get_jobs()}
 
 
-def test_sem_ia_registra_apenas_os_ciclos_de_monitoramento():
-    assert _ids(Settings(_env_file=None)) == {"ciclo_renda_variavel", "ciclo_cripto"}
+def test_sem_ia_registra_apenas_os_ciclos_de_monitoramento_e_os_indices():
+    assert _ids(Settings(_env_file=None)) == {
+        "ciclo_renda_variavel",
+        "ciclo_cripto",
+        "indices_referencia",
+    }
 
 
 def test_ia_habilitada_sem_chave_nao_registra_resumo():
@@ -43,3 +47,16 @@ def test_ia_habilitada_com_chave_registra_resumo_diario_no_horario_de_sao_paulo(
     campos = {campo.name: str(campo) for campo in job.trigger.fields}
     assert campos["hour"] == "18"
     assert campos["minute"] == "30"
+
+
+def test_registra_atualizacao_dos_indices_no_horario_de_sao_paulo():
+    settings = Settings(_env_file=None, indices_referencia_hora=19, indices_referencia_minuto=15)
+    scheduler = BackgroundScheduler()
+
+    registrar_jobs(scheduler, settings)
+
+    job = next(j for j in scheduler.get_jobs() if j.id == "indices_referencia")
+    assert str(job.trigger.timezone) == "America/Sao_Paulo"
+    campos = {campo.name: str(campo) for campo in job.trigger.fields}
+    assert campos["hour"] == "19"
+    assert campos["minute"] == "15"

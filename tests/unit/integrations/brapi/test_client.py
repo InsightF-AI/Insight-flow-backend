@@ -277,3 +277,40 @@ def test_buscar_historico_com_results_vazio_lanca_erro_especifico():
 
     with pytest.raises(TickerNaoEncontradoError):
         client.buscar_historico("NAOEXISTE", PeriodoHistorico.UM_MES)
+
+
+def test_buscar_historico_ordena_os_pontos_do_mais_antigo_para_o_mais_recente():
+    def _ponto(timestamp: int, fechamento: float) -> dict:
+        return {
+            "date": timestamp,
+            "open": fechamento,
+            "high": fechamento,
+            "low": fechamento,
+            "close": fechamento,
+            "volume": 1000,
+        }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    {
+                        "symbol": "^BVSP",
+                        "data": {
+                            "historicalDataPrice": [
+                                _ponto(1704240000, 130.0),
+                                _ponto(1704153600, 120.0),
+                                _ponto(1704067200, 110.0),
+                            ]
+                        },
+                    }
+                ]
+            },
+        )
+
+    client = _client(handler)
+
+    pontos = client.buscar_historico("^BVSP", PeriodoHistorico.UM_MES)
+
+    assert [float(p.fechamento) for p in pontos] == [110.0, 120.0, 130.0]

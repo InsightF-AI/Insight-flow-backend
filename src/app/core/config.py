@@ -21,6 +21,8 @@ class Settings(BaseSettings):
 
     historico_backfill_periodo: PeriodoHistorico = PeriodoHistorico.TRES_MESES
     historico_minimo_cotacoes: int = 50
+    indices_referencia_hora: int = 19
+    indices_referencia_minuto: int = 0
 
     bcb_base_url: str = "https://api.bcb.gov.br"
     cache_ttl_cambio_segundos: int = 21600

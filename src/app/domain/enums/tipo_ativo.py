@@ -7,3 +7,4 @@ class TipoAtivo(str, Enum):
     ETF = "ETF"
     BDR = "BDR"
     CRIPTO = "CRIPTO"
+    INDICE = "INDICE"

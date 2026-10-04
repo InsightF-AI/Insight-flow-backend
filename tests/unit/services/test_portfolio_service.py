@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -126,6 +126,7 @@ from app.services.exceptions import (
 from app.services.portfolio_service import PortfolioService
 from tests.fixtures.fake_ativo_repository import FakeAtivoRepository
 from tests.fixtures.fake_cambio_service import FakeCambioService
+from tests.fixtures.fake_cotacao_repository import FakeCotacaoRepository
 from tests.fixtures.fake_dados_mercado_service import FakeDadosMercadoService
 from tests.fixtures.fake_operacao_repository import FakeOperacaoRepository
 
@@ -150,6 +151,7 @@ def _service(ativos=None):
         FakeDadosMercadoService(),
         FakeCambioService(),
         bcb_client=None,
+        cotacao_repository=FakeCotacaoRepository(),
     )
 
 
@@ -328,6 +330,7 @@ def _service_com_cotacao(preco: str, taxa_cambio: Decimal | None = None) -> Port
         FakeDadosMercadoService(cotacoes={"PETR4": _cotacao(preco)}),
         FakeCambioService(taxa=taxa_cambio if taxa_cambio is not None else Decimal(1)),
         bcb_client=None,
+        cotacao_repository=FakeCotacaoRepository(),
     )
 
 
@@ -387,6 +390,7 @@ def test_posicoes_converte_valor_de_mercado_para_brl():
         ),
         FakeCambioService(taxa=Decimal("5.00")),
         bcb_client=None,
+        cotacao_repository=FakeCotacaoRepository(),
     )
 
     usuario_id = uuid4()
@@ -581,6 +585,7 @@ def test_distribuicao_agrupa_por_classe_setor_e_moeda_somando_um():
         ),
         FakeCambioService(taxa=Decimal("5.00")),
         bcb_client=None,
+        cotacao_repository=FakeCotacaoRepository(),
     )
     usuario_id = uuid4()
     for ativo_id, preco in ((_PETR4.id, "30.00"), (_VALE3.id, "30.00"), (_BTC.id, "1.00")):
@@ -615,6 +620,7 @@ def test_distribuicao_sem_posicoes_retorna_dicionarios_vazios():
 from app.domain.enums.tipo_benchmark import TipoBenchmark
 from app.integrations.bcb.client import BcbIndisponivelError, PontoCdi
 from app.integrations.brapi.client import PontoHistorico
+from app.services.ativo_service import AtivoService
 from app.services.exceptions import PortfolioVazioError
 
 
@@ -629,8 +635,10 @@ class _FakeBcbClient:
         return self._pontos
 
 
-def _service_com_benchmark(bcb_client, historicos=None) -> PortfolioService:
-    ativo_repository = FakeAtivoRepository()
+def _service_com_benchmark(
+    bcb_client, historicos=None, ativo_repository=None, cotacao_repository=None
+) -> PortfolioService:
+    ativo_repository = ativo_repository or FakeAtivoRepository()
     ativo_repository.salvar(_PETR4)
     return PortfolioService(
         FakeOperacaoRepository(),
@@ -640,6 +648,7 @@ def _service_com_benchmark(bcb_client, historicos=None) -> PortfolioService:
         ),
         FakeCambioService(taxa=Decimal(1)),
         bcb_client=bcb_client,
+        cotacao_repository=cotacao_repository or FakeCotacaoRepository(),
     )
 
 
@@ -826,6 +835,7 @@ def test_replay_por_ativo_omite_ativo_corrompido_e_mantem_saudavel():
         FakeDadosMercadoService(cotacoes={"PETR4": _cotacao("50.00")}),
         FakeCambioService(taxa=Decimal(1)),
         bcb_client=None,
+        cotacao_repository=FakeCotacaoRepository(),
     )
     usuario_id = uuid4()
     ativo_corrompido_id = uuid4()
@@ -867,3 +877,85 @@ def test_replay_por_ativo_omite_ativo_corrompido_e_mantem_saudavel():
 
     assert len(posicoes) == 1
     assert posicoes[0].ativo_id == _PETR4.id
+
+
+def _ponto_ibovespa(data: datetime, fechamento: int) -> PontoHistorico:
+    return PontoHistorico(
+        data=data,
+        abertura=Decimal(fechamento),
+        maxima=Decimal(fechamento),
+        minima=Decimal(fechamento),
+        fechamento=Decimal(fechamento),
+        volume=Decimal(0),
+    )
+
+
+def _comprar_petr4(service: PortfolioService, usuario_id, data: date) -> None:
+    service.registrar_operacao(
+        usuario_id=usuario_id,
+        ativo_id=_PETR4.id,
+        tipo=TipoOperacao.COMPRA,
+        quantidade=Decimal(10),
+        preco_unitario=Decimal("30.00"),
+        data=data,
+    )
+
+
+def test_comparativo_benchmark_ibovespa_ignora_pontos_anteriores_ao_inicio_da_carteira():
+    historico = [
+        _ponto_ibovespa(datetime(2026, 8, 20, tzinfo=UTC), 90),
+        _ponto_ibovespa(datetime(2026, 9, 1, tzinfo=UTC), 100),
+        _ponto_ibovespa(datetime(2026, 9, 10, tzinfo=UTC), 110),
+    ]
+    service = _service_com_benchmark(_FakeBcbClient(), historicos={"^BVSP": historico})
+    usuario_id = uuid4()
+    _comprar_petr4(service, usuario_id, date(2026, 9, 1))
+
+    comparativo = service.comparativo_benchmark(usuario_id, TipoBenchmark.IBOVESPA)
+
+    assert comparativo.rentabilidade_benchmark_percentual == Decimal("0.10")
+
+
+def test_comparativo_benchmark_ibovespa_sem_cobertura_do_inicio_retorna_none():
+    historico = [
+        _ponto_ibovespa(datetime(2026, 9, 20, tzinfo=UTC), 100),
+        _ponto_ibovespa(datetime(2026, 9, 30, tzinfo=UTC), 110),
+    ]
+    service = _service_com_benchmark(_FakeBcbClient(), historicos={"^BVSP": historico})
+    usuario_id = uuid4()
+    _comprar_petr4(service, usuario_id, date(2026, 9, 1))
+
+    comparativo = service.comparativo_benchmark(usuario_id, TipoBenchmark.IBOVESPA)
+
+    assert comparativo.rentabilidade_benchmark_percentual is None
+
+
+def test_comparativo_benchmark_ibovespa_de_carteira_longa_usa_historico_persistido():
+    agora = datetime.now(UTC)
+    ibovespa = Ativo(
+        id=uuid4(),
+        ticker="^BVSP",
+        nome="Ibovespa",
+        tipo=TipoAtivo.INDICE,
+        setor=None,
+        moeda="BRL",
+        fonte_dados="brapi",
+    )
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(ibovespa)
+    cotacao_repository = FakeCotacaoRepository()
+    cotacao_repository.salvar_muitas(
+        [AtivoService._para_cotacao(ibovespa.id, _ponto_ibovespa(agora - timedelta(days=199), 100))]
+    )
+    service = _service_com_benchmark(
+        _FakeBcbClient(),
+        historicos={"^BVSP": [_ponto_ibovespa(agora - timedelta(days=1), 120)]},
+        ativo_repository=ativo_repository,
+        cotacao_repository=cotacao_repository,
+    )
+    usuario_id = uuid4()
+    _comprar_petr4(service, usuario_id, (agora - timedelta(days=200)).date())
+
+    comparativo = service.comparativo_benchmark(usuario_id, TipoBenchmark.IBOVESPA)
+
+    assert comparativo.rentabilidade_benchmark_percentual == Decimal("0.20")
