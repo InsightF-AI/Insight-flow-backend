@@ -107,3 +107,11 @@ def test_buscar_ativo_nunca_usa_o_cache():
 
     assert resultado == [encontrado]
     assert cache._valores == {}
+
+
+def test_historico_e_diario_delega_ao_servico_interno():
+    interno = FakeDadosMercadoService(tickers_diarios={"BTC"})
+    service = CachedDadosMercadoService(interno, FakeMercadoCache(), ttl_cotacao_atual=60)
+
+    assert service.historico_e_diario("BTC", PeriodoHistorico.CINCO_ANOS) is True
+    assert service.historico_e_diario("PETR4", PeriodoHistorico.CINCO_ANOS) is False

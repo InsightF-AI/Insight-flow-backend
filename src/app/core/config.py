@@ -3,6 +3,7 @@ from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.domain.enums.periodo_historico import PeriodoHistorico
+from app.domain.value_objects.politica_historico import PoliticaHistorico
 
 
 class Settings(BaseSettings):
@@ -15,11 +16,14 @@ class Settings(BaseSettings):
 
     brapi_base_url: str = "https://brapi.dev"
     brapi_api_key: str = ""
+    binance_base_url: str = "https://api.binance.com"
 
     redis_url: str = "redis://localhost:6381/0"
     cache_ttl_cotacao_atual_segundos: int = 60
+    cache_ttl_catalogo_cripto_segundos: int = 86400
 
     historico_backfill_periodo: PeriodoHistorico = PeriodoHistorico.TRES_MESES
+    historico_backfill_periodo_cripto: PeriodoHistorico = PeriodoHistorico.CINCO_ANOS
     historico_minimo_cotacoes: int = 50
     indices_referencia_hora: int = 19
     indices_referencia_minuto: int = 0
@@ -45,6 +49,13 @@ class Settings(BaseSettings):
     chat_max_mensagens: int = 20
     chat_max_caracteres_mensagem: int = 2000
     max_iteracoes_ferramentas: int = 4
+
+    def politica_historico(self) -> PoliticaHistorico:
+        return PoliticaHistorico(
+            periodo_backfill=self.historico_backfill_periodo,
+            periodo_backfill_cripto=self.historico_backfill_periodo_cripto,
+            minimo_cotacoes=self.historico_minimo_cotacoes,
+        )
 
 
 @lru_cache

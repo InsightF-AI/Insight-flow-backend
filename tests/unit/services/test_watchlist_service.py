@@ -6,6 +6,7 @@ import pytest
 
 from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.domain.enums.tipo_ativo import TipoAtivo
+from app.domain.value_objects.politica_historico import PoliticaHistorico
 from app.integrations.brapi.client import AtivoEncontrado, BrapiIndisponivelError, PontoHistorico
 from app.services.ativo_service import AtivoService
 from app.services.exceptions import (
@@ -48,8 +49,11 @@ def _service(
         AtivoService(
             ativo_repository, dados_mercado_service, cotacao_repository or FakeCotacaoRepository()
         ),
-        periodo_backfill=PeriodoHistorico.TRES_MESES,
-        minimo_cotacoes=50,
+        politica=PoliticaHistorico(
+            periodo_backfill=PeriodoHistorico.TRES_MESES,
+            periodo_backfill_cripto=PeriodoHistorico.CINCO_ANOS,
+            minimo_cotacoes=50,
+        ),
     )
 
 
@@ -190,3 +194,20 @@ def test_adicionar_mantem_o_item_quando_a_coleta_de_historico_falha():
     item = service.adicionar(usuario_id=usuario_id, ticker="PETR4")
 
     assert [i.ativo.id for i in service.listar(usuario_id)] == [item.ativo.id]
+
+
+def test_adicionar_grava_a_fonte_de_dados_informada_pela_busca():
+    btc = AtivoEncontrado(
+        ticker="BTC",
+        nome="BTC",
+        tipo=TipoAtivo.CRIPTO,
+        moeda="BRL",
+        setor=None,
+        fonte_dados="binance",
+    )
+    service = _service([btc])
+
+    item = service.adicionar(usuario_id=uuid4(), ticker="BTC")
+
+    assert item.ativo.fonte_dados == "binance"
+    assert item.ativo.tipo is TipoAtivo.CRIPTO

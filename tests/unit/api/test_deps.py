@@ -4,11 +4,19 @@ import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
-from app.api.deps import get_usuario_atual
+from app.api.deps import (
+    get_binance_client,
+    get_brapi_client,
+    get_dados_mercado_service,
+    get_usuario_atual,
+)
 from app.core.config import Settings
 from app.core.security import criar_token
 from app.domain.entities.usuario import Usuario
+from app.services.cached_dados_mercado_service import CachedDadosMercadoService
+from app.services.roteador_dados_mercado_service import RoteadorDadosMercadoService
 from app.services.usuario_service import UsuarioService
+from tests.fixtures.fake_mercado_cache import FakeMercadoCache
 from tests.fixtures.fake_usuario_repository import FakeUsuarioRepository
 
 SETTINGS = Settings(jwt_secret_key="segredo-de-teste", jwt_expiration_minutes=60)
@@ -71,3 +79,18 @@ def test_get_provedor_llm_configurado_retorna_gemini():
     )
 
     assert isinstance(provedor, GeminiProvider)
+
+
+def test_dados_mercado_service_envolve_o_roteador_no_cache():
+    settings = Settings(_env_file=None)
+    cache = FakeMercadoCache()
+
+    service = get_dados_mercado_service(
+        brapi_client=get_brapi_client(settings),
+        binance_client=get_binance_client(settings),
+        mercado_cache=cache,
+        settings=settings,
+    )
+
+    assert isinstance(service, CachedDadosMercadoService)
+    assert isinstance(service._interno, RoteadorDadosMercadoService)

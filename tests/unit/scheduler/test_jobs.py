@@ -1,7 +1,10 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.core.config import Settings
-from app.scheduler.jobs import registrar_jobs
+from app.scheduler.jobs import _dados_mercado_service, registrar_jobs
+from app.services.cached_dados_mercado_service import CachedDadosMercadoService
+from app.services.roteador_dados_mercado_service import RoteadorDadosMercadoService
+from tests.fixtures.fake_mercado_cache import FakeMercadoCache
 
 
 def _ids(settings: Settings) -> set[str]:
@@ -60,3 +63,10 @@ def test_registra_atualizacao_dos_indices_no_horario_de_sao_paulo():
     campos = {campo.name: str(campo) for campo in job.trigger.fields}
     assert campos["hour"] == "19"
     assert campos["minute"] == "15"
+
+
+def test_dados_mercado_do_scheduler_envolve_o_roteador_no_cache():
+    service = _dados_mercado_service(Settings(_env_file=None), FakeMercadoCache())
+
+    assert isinstance(service, CachedDadosMercadoService)
+    assert isinstance(service._interno, RoteadorDadosMercadoService)

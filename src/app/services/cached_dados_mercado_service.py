@@ -44,6 +44,9 @@ class CachedDadosMercadoService(DadosMercadoService):
         self._cache.salvar(chave, _historico_para_json(pontos), self._ttl_cotacao_atual)
         return pontos
 
+    def historico_e_diario(self, ticker: str, periodo: PeriodoHistorico) -> bool:
+        return self._interno.historico_e_diario(ticker, periodo)
+
 
 def _cotacao_atual_para_json(cotacao: CotacaoAtual) -> str:
     return json.dumps(

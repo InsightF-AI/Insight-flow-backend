@@ -48,7 +48,7 @@ class AlertaService:
         ticker = ticker.upper()
         ativo = self._ativo_repository.buscar_por_ticker(ticker)
         if ativo is None:
-            ativo = self._resolver_ativo_na_brapi(ticker)
+            ativo = self._resolver_ativo(ticker)
             self._ativo_repository.salvar(ativo)
 
         agora = datetime.now(UTC)
@@ -139,7 +139,7 @@ class AlertaService:
             raise AlertaNaoEncontradoError(alerta_id)
         return alerta
 
-    def _resolver_ativo_na_brapi(self, ticker: str) -> Ativo:
+    def _resolver_ativo(self, ticker: str) -> Ativo:
         encontrados = self._dados_mercado_service.buscar_ativo(ticker)
         correspondente = next((a for a in encontrados if a.ticker == ticker), None)
         if correspondente is None:
@@ -152,5 +152,5 @@ class AlertaService:
             tipo=correspondente.tipo,
             setor=correspondente.setor,
             moeda=correspondente.moeda,
-            fonte_dados="brapi",
+            fonte_dados=correspondente.fonte_dados,
         )

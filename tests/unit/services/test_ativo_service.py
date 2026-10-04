@@ -7,6 +7,7 @@ import pytest
 from app.domain.entities.ativo import Ativo
 from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.domain.enums.tipo_ativo import TipoAtivo
+from app.domain.value_objects.politica_historico import PoliticaHistorico
 from app.integrations.brapi.client import CotacaoAtual, PontoHistorico
 from app.services.ativo_service import AtivoService
 from app.services.exceptions import AtivoNaoEncontradoError
@@ -32,6 +33,29 @@ _COTACAO_PETR4 = CotacaoAtual(
     maxima_dia=Decimal("37.10"),
     minima_dia=Decimal("36.20"),
     volume=Decimal(27681100),
+)
+
+
+_POLITICA = PoliticaHistorico(
+    periodo_backfill=PeriodoHistorico.TRES_MESES,
+    periodo_backfill_cripto=PeriodoHistorico.CINCO_ANOS,
+    minimo_cotacoes=50,
+)
+
+_POLITICA_CINCO_ANOS = PoliticaHistorico(
+    periodo_backfill=PeriodoHistorico.CINCO_ANOS,
+    periodo_backfill_cripto=PeriodoHistorico.CINCO_ANOS,
+    minimo_cotacoes=50,
+)
+
+_BTC = Ativo(
+    id=uuid4(),
+    ticker="BTC",
+    nome="BTC",
+    tipo=TipoAtivo.CRIPTO,
+    setor=None,
+    moeda="BRL",
+    fonte_dados="binance",
 )
 
 
@@ -238,9 +262,7 @@ def test_atualizar_historico_com_poucas_cotacoes_busca_periodo_de_backfill():
     cotacao_repository = FakeCotacaoRepository()
     service = _service(ativo_repository, dados_mercado_service, cotacao_repository)
 
-    service.atualizar_historico(
-        _PETR4.id, periodo_backfill=PeriodoHistorico.TRES_MESES, minimo_cotacoes=50
-    )
+    service.atualizar_historico(_PETR4.id, _POLITICA)
 
     assert dados_mercado_service.historicos_solicitados == [("PETR4", PeriodoHistorico.TRES_MESES)]
     assert len(cotacao_repository.listar_por_ativo(_PETR4.id)) == 63
@@ -255,9 +277,7 @@ def test_atualizar_historico_com_cotacoes_suficientes_busca_apenas_um_mes():
     service.historico(_PETR4.id, PeriodoHistorico.TRES_MESES)
     dados_mercado_service.historicos_solicitados.clear()
 
-    service.atualizar_historico(
-        _PETR4.id, periodo_backfill=PeriodoHistorico.TRES_MESES, minimo_cotacoes=50
-    )
+    service.atualizar_historico(_PETR4.id, _POLITICA)
 
     assert dados_mercado_service.historicos_solicitados == [("PETR4", PeriodoHistorico.UM_MES)]
 
@@ -273,3 +293,47 @@ def test_buscar_ou_criar_indice_cria_o_ativo_de_referencia_uma_unica_vez():
     assert primeiro.tipo is TipoAtivo.INDICE
     assert primeiro.moeda == "BRL"
     assert ativo_repository.buscar_por_ticker("^BVSP") == primeiro
+
+
+def test_coleta_de_historico_nao_diario_nao_persiste():
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_PETR4)
+    dados_mercado_service = FakeDadosMercadoService(
+        historicos={"PETR4": [_ponto_dias_atras(3000, "20")]}
+    )
+    cotacao_repository = FakeCotacaoRepository()
+    service = _service(ativo_repository, dados_mercado_service, cotacao_repository)
+
+    service.atualizar_historico(_PETR4.id, _POLITICA_CINCO_ANOS)
+
+    assert cotacao_repository.listar_por_ativo(_PETR4.id) == []
+
+
+def test_coleta_de_historico_persiste_quando_a_fonte_diz_que_e_diario():
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_PETR4)
+    dados_mercado_service = FakeDadosMercadoService(
+        historicos={"PETR4": [_ponto_dias_atras(3000, "20")]}, tickers_diarios={"PETR4"}
+    )
+    cotacao_repository = FakeCotacaoRepository()
+    service = _service(ativo_repository, dados_mercado_service, cotacao_repository)
+
+    service.atualizar_historico(_PETR4.id, _POLITICA_CINCO_ANOS)
+
+    assert len(cotacao_repository.listar_por_ativo(_PETR4.id)) == 1
+
+
+def test_atualizar_historico_de_cripto_com_poucas_cotacoes_busca_cinco_anos_e_persiste():
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_BTC)
+    dados_mercado_service = FakeDadosMercadoService(
+        historicos={"BTC": [_ponto_dias_atras(900, "200000"), _ponto_dias_atras(1, "450000")]},
+        tickers_diarios={"BTC"},
+    )
+    cotacao_repository = FakeCotacaoRepository()
+    service = _service(ativo_repository, dados_mercado_service, cotacao_repository)
+
+    service.atualizar_historico(_BTC.id, _POLITICA)
+
+    assert dados_mercado_service.historicos_solicitados == [("BTC", PeriodoHistorico.CINCO_ANOS)]
+    assert len(cotacao_repository.listar_por_ativo(_BTC.id)) == 2

@@ -12,6 +12,7 @@ from app.core.config import Settings
 from app.db.session import criar_session_factory
 from app.domain.enums.tipo_ativo import TipoAtivo
 from app.integrations.bcb.client import BcbClient
+from app.integrations.binance.client import BinanceClient
 from app.integrations.brapi.client import BrapiClient
 from app.repositories.sqlalchemy.alerta_repository import SqlAlchemyAlertaRepository
 from app.repositories.sqlalchemy.ativo_repository import SqlAlchemyAtivoRepository
@@ -33,10 +34,12 @@ from app.services.cached_dados_mercado_service import CachedDadosMercadoService
 from app.services.cambio_service import BcbCambioService
 from app.services.dados_mercado_service import DadosMercadoService
 from app.services.indicador_service import IndicadorService
+from app.services.mercado_cache import MercadoCache
 from app.services.notificacao_service import NotificacaoService
 from app.services.portfolio_service import PortfolioService
 from app.services.redis_mercado_cache import RedisMercadoCache
 from app.services.resumo_carteira_service import ResumoCarteiraService
+from app.services.roteador_dados_mercado_service import RoteadorDadosMercadoService
 from app.services.sinal_service import SinalService
 
 _RENDA_VARIAVEL = {TipoAtivo.ACAO, TipoAtivo.FII, TipoAtivo.ETF, TipoAtivo.BDR}
@@ -91,18 +94,36 @@ def _bcb_http_client(base_url: str) -> httpx.Client:
 
 
 @lru_cache
+def _binance_http_client(base_url: str) -> httpx.Client:
+    return httpx.Client(base_url=base_url, timeout=10.0)
+
+
+@lru_cache
 def _redis_client(redis_url: str) -> redis.Redis:
     return redis.Redis.from_url(redis_url)
+
+
+def _dados_mercado_service(settings: Settings, cache: MercadoCache) -> DadosMercadoService:
+    brapi_client = BrapiClient(
+        _brapi_http_client(settings.brapi_base_url),
+        settings.brapi_api_key or None,
+    )
+    return CachedDadosMercadoService(
+        RoteadorDadosMercadoService(
+            DadosMercadoService(brapi_client),
+            BinanceClient(_binance_http_client(settings.binance_base_url)),
+            cache,
+            ttl_catalogo_segundos=settings.cache_ttl_catalogo_cripto_segundos,
+        ),
+        cache,
+        ttl_cotacao_atual=settings.cache_ttl_cotacao_atual_segundos,
+    )
 
 
 def _executar_ciclo(settings: Settings, tipos_ativo: set[TipoAtivo]) -> None:
     session = _session_factory(settings.database_url)()
     try:
         cache = RedisMercadoCache(_redis_client(settings.redis_url))
-        brapi_client = BrapiClient(
-            _brapi_http_client(settings.brapi_base_url),
-            settings.brapi_api_key or None,
-        )
         bcb_client = BcbClient(_bcb_http_client(settings.bcb_base_url))
 
         ativo_repository = SqlAlchemyAtivoRepository(session)
@@ -113,11 +134,7 @@ def _executar_ciclo(settings: Settings, tipos_ativo: set[TipoAtivo]) -> None:
         indicador_repository = SqlAlchemyIndicadorTecnicoRepository(session)
         notificacao_repository = SqlAlchemyNotificacaoRepository(session)
 
-        dados_mercado_service = CachedDadosMercadoService(
-            DadosMercadoService(brapi_client),
-            cache,
-            ttl_cotacao_atual=settings.cache_ttl_cotacao_atual_segundos,
-        )
+        dados_mercado_service = _dados_mercado_service(settings, cache)
         cambio_service = CachedCambioService(
             BcbCambioService(bcb_client),
             cache,
@@ -141,8 +158,7 @@ def _executar_ciclo(settings: Settings, tipos_ativo: set[TipoAtivo]) -> None:
             ),
             SinalService(ativo_repository, cotacao_repository, indicador_service, sinal_repository),
             NotificacaoService(notificacao_repository),
-            periodo_backfill=settings.historico_backfill_periodo,
-            minimo_cotacoes=settings.historico_minimo_cotacoes,
+            politica=settings.politica_historico(),
             ao_falhar_ativo=session.rollback,
         )
     finally:
@@ -152,14 +168,8 @@ def _executar_ciclo(settings: Settings, tipos_ativo: set[TipoAtivo]) -> None:
 def _executar_indices_referencia(settings: Settings) -> None:
     session = _session_factory(settings.database_url)()
     try:
-        brapi_client = BrapiClient(
-            _brapi_http_client(settings.brapi_base_url),
-            settings.brapi_api_key or None,
-        )
-        dados_mercado_service = CachedDadosMercadoService(
-            DadosMercadoService(brapi_client),
-            RedisMercadoCache(_redis_client(settings.redis_url)),
-            ttl_cotacao_atual=settings.cache_ttl_cotacao_atual_segundos,
+        dados_mercado_service = _dados_mercado_service(
+            settings, RedisMercadoCache(_redis_client(settings.redis_url))
         )
         atualizar_indices_referencia(
             AtivoService(
@@ -167,8 +177,7 @@ def _executar_indices_referencia(settings: Settings) -> None:
                 dados_mercado_service,
                 SqlAlchemyCotacaoRepository(session),
             ),
-            settings.historico_backfill_periodo,
-            settings.historico_minimo_cotacoes,
+            settings.politica_historico(),
         )
     finally:
         session.close()
@@ -178,21 +187,13 @@ def _executar_resumos_diarios(settings: Settings) -> None:
     session = _session_factory(settings.database_url)()
     try:
         cache = RedisMercadoCache(_redis_client(settings.redis_url))
-        brapi_client = BrapiClient(
-            _brapi_http_client(settings.brapi_base_url),
-            settings.brapi_api_key or None,
-        )
         bcb_client = BcbClient(_bcb_http_client(settings.bcb_base_url))
 
         operacao_repository = SqlAlchemyOperacaoRepository(session)
         ativo_repository = SqlAlchemyAtivoRepository(session)
         notificacao_repository = SqlAlchemyNotificacaoRepository(session)
 
-        dados_mercado_service = CachedDadosMercadoService(
-            DadosMercadoService(brapi_client),
-            cache,
-            ttl_cotacao_atual=settings.cache_ttl_cotacao_atual_segundos,
-        )
+        dados_mercado_service = _dados_mercado_service(settings, cache)
         cambio_service = CachedCambioService(
             BcbCambioService(bcb_client),
             cache,

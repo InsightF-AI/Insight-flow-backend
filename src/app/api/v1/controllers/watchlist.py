@@ -9,7 +9,7 @@ from app.api.v1.schemas.watchlist import (
     ItemWatchlistResponse,
 )
 from app.domain.entities.usuario import Usuario
-from app.integrations.brapi.client import BrapiIndisponivelError
+from app.integrations.erros import FonteDadosIndisponivelError
 from app.services.exceptions import (
     AtivoJaNaWatchlistError,
     AtivoNaoEncontradoError,
@@ -32,7 +32,7 @@ def adicionar(
         raise HTTPException(status.HTTP_409_CONFLICT, "Ativo ja esta na watchlist") from exc
     except AtivoNaoEncontradoError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Ativo nao encontrado") from exc
-    except BrapiIndisponivelError as exc:
+    except FonteDadosIndisponivelError as exc:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE, "Fonte de dados de mercado indisponivel"
         ) from exc
