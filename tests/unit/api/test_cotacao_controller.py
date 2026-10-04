@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -82,7 +82,7 @@ def test_historico_retorna_a_serie_do_ativo(
     ativo_repository.salvar(_PETR4)
     historicos_brapi["PETR4"] = [
         PontoHistorico(
-            data=datetime(2024, 1, 1, tzinfo=UTC),
+            data=datetime.now(UTC) - timedelta(days=1),
             abertura=Decimal(35),
             maxima=Decimal(36),
             minima=Decimal("34.5"),

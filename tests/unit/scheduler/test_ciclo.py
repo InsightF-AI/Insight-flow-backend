@@ -336,7 +336,7 @@ def test_ativo_em_watchlist_com_poucas_cotacoes_coleta_periodo_de_backfill():
     assert dados_mercado_service.historicos_solicitados == [("PETR4", PeriodoHistorico.TRES_MESES)]
 
 
-def test_ativo_em_watchlist_com_cotacoes_suficientes_coleta_apenas_um_mes():
+def test_ativo_em_watchlist_com_cotacoes_suficientes_coleta_apenas_a_ultima_semana():
     historico = _historico_rsi_baixo()
     dados_mercado_service = FakeDadosMercadoService(
         cotacoes={"PETR4": _cotacao("PETR4", "20.00")},
@@ -357,7 +357,7 @@ def test_ativo_em_watchlist_com_cotacoes_suficientes_coleta_apenas_um_mes():
         ),
     )
 
-    assert dados_mercado_service.historicos_solicitados == [("PETR4", PeriodoHistorico.UM_MES)]
+    assert dados_mercado_service.historicos_solicitados == [("PETR4", PeriodoHistorico.UMA_SEMANA)]
 
 
 def test_cripto_em_watchlist_no_ciclo_de_cripto_coleta_cinco_anos():

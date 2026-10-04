@@ -21,6 +21,8 @@ class FakeDadosMercadoService(DadosMercadoService):
         historicos: dict[str, list[PontoHistorico]] | None = None,
         indisponivel: bool = False,
         tickers_diarios: set[str] | None = None,
+        historicos_por_periodo: dict[tuple[str, PeriodoHistorico], list[PontoHistorico]]
+        | None = None,
     ):
         self._catalogo = catalogo if catalogo is not None else []
         self._cotacoes = cotacoes if cotacoes is not None else {}
@@ -28,6 +30,7 @@ class FakeDadosMercadoService(DadosMercadoService):
         self.indisponivel = indisponivel
         self.erro_indisponivel: type[Exception] = BrapiIndisponivelError
         self._tickers_diarios = tickers_diarios or set()
+        self._historicos_por_periodo = historicos_por_periodo or {}
         self.historicos_solicitados: list[tuple[str, PeriodoHistorico]] = []
 
     def buscar_ativo(self, termo: str) -> list[AtivoEncontrado]:
@@ -52,6 +55,8 @@ class FakeDadosMercadoService(DadosMercadoService):
         self.historicos_solicitados.append((ticker, periodo))
         if self.indisponivel:
             raise self.erro_indisponivel
+        if (ticker, periodo) in self._historicos_por_periodo:
+            return self._historicos_por_periodo[(ticker, periodo)]
         if ticker not in self._historicos:
             raise TickerNaoEncontradoError(ticker)
         return self._historicos[ticker]

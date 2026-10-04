@@ -28,6 +28,7 @@ _PONTO_PETR4 = PontoHistorico(
 )
 
 _TTL_COTACAO_ATUAL = 60
+_TTL_HISTORICO = 86400
 
 
 def _service(interno=None, cache=None) -> CachedDadosMercadoService:
@@ -35,6 +36,7 @@ def _service(interno=None, cache=None) -> CachedDadosMercadoService:
         interno or FakeDadosMercadoService(),
         cache or FakeMercadoCache(),
         ttl_cotacao_atual=_TTL_COTACAO_ATUAL,
+        ttl_historico=_TTL_HISTORICO,
     )
 
 
@@ -72,15 +74,39 @@ def test_historico_com_cache_vazio_busca_no_interno_e_povoa_o_cache():
     assert cache.obter("historico:PETR4:1M") is not None
 
 
-def test_historico_usa_o_ttl_curto_independente_do_periodo():
+def test_historico_consolidado_usa_o_ttl_de_24_horas():
     interno = FakeDadosMercadoService(historicos={"PETR4": [_PONTO_PETR4]})
     cache = FakeMercadoCache()
     service = _service(interno, cache)
 
-    for periodo in PeriodoHistorico:
+    for periodo in (
+        PeriodoHistorico.UM_MES,
+        PeriodoHistorico.TRES_MESES,
+        PeriodoHistorico.UM_ANO,
+        PeriodoHistorico.CINCO_ANOS,
+    ):
         service.buscar_historico("PETR4", periodo)
 
-    assert set(cache.ttls.values()) == {_TTL_COTACAO_ATUAL}
+    assert {chave: ttl for chave, ttl in cache.ttls.items()} == {
+        "historico:PETR4:1M": _TTL_HISTORICO,
+        "historico:PETR4:3M": _TTL_HISTORICO,
+        "historico:PETR4:1A": _TTL_HISTORICO,
+        "historico:PETR4:5A": _TTL_HISTORICO,
+    }
+
+
+def test_historico_recente_usa_o_ttl_curto_da_cotacao():
+    interno = FakeDadosMercadoService(historicos={"PETR4": [_PONTO_PETR4]})
+    cache = FakeMercadoCache()
+    service = _service(interno, cache)
+
+    service.buscar_historico("PETR4", PeriodoHistorico.UM_DIA)
+    service.buscar_historico("PETR4", PeriodoHistorico.UMA_SEMANA)
+
+    assert cache.ttls == {
+        "historico:PETR4:1D": _TTL_COTACAO_ATUAL,
+        "historico:PETR4:1S": _TTL_COTACAO_ATUAL,
+    }
 
 
 def test_historico_com_cache_populado_nao_chama_o_interno():
@@ -111,7 +137,7 @@ def test_buscar_ativo_nunca_usa_o_cache():
 
 def test_historico_e_diario_delega_ao_servico_interno():
     interno = FakeDadosMercadoService(tickers_diarios={"BTC"})
-    service = CachedDadosMercadoService(interno, FakeMercadoCache(), ttl_cotacao_atual=60)
+    service = _service(interno)
 
     assert service.historico_e_diario("BTC", PeriodoHistorico.CINCO_ANOS) is True
     assert service.historico_e_diario("PETR4", PeriodoHistorico.CINCO_ANOS) is False

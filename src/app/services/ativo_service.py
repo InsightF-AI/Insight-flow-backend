@@ -17,9 +17,20 @@ from app.repositories.interfaces.cotacao_repository import CotacaoRepository
 from app.services.dados_mercado_service import DadosMercadoService
 from app.services.exceptions import AtivoNaoEncontradoError
 
-_DIAS_PERIODO_PERSISTIDO = {
+_DIAS_POR_PERIODO = {
+    PeriodoHistorico.UMA_SEMANA: 7,
+    PeriodoHistorico.UM_MES: 30,
+    PeriodoHistorico.TRES_MESES: 90,
     PeriodoHistorico.UM_ANO: 365,
     PeriodoHistorico.CINCO_ANOS: 1825,
+}
+
+_PERIODO_DE_COLETA = {
+    PeriodoHistorico.UMA_SEMANA: PeriodoHistorico.UMA_SEMANA,
+    PeriodoHistorico.UM_MES: PeriodoHistorico.UM_MES,
+    PeriodoHistorico.TRES_MESES: PeriodoHistorico.TRES_MESES,
+    PeriodoHistorico.UM_ANO: PeriodoHistorico.TRES_MESES,
+    PeriodoHistorico.CINCO_ANOS: PeriodoHistorico.TRES_MESES,
 }
 
 
@@ -42,11 +53,12 @@ class AtivoService:
         ativo = self._buscar_ativo(ativo_id)
         if periodo == PeriodoHistorico.UM_DIA:
             return [self._ponto_do_dia(ativo)]
-        if periodo in _DIAS_PERIODO_PERSISTIDO:
-            self._coletar_historico(ativo, PeriodoHistorico.TRES_MESES)
-            desde = datetime.now(UTC) - timedelta(days=_DIAS_PERIODO_PERSISTIDO[periodo])
-            return self._historico_persistido(ativo.id, desde)
-        return self._coletar_historico(ativo, periodo)
+        coleta = _PERIODO_DE_COLETA[periodo]
+        self._coletar_historico(ativo, coleta)
+        if coleta != PeriodoHistorico.UMA_SEMANA:
+            self._coletar_historico(ativo, PeriodoHistorico.UMA_SEMANA)
+        desde = datetime.now(UTC) - timedelta(days=_DIAS_POR_PERIODO[periodo])
+        return self._historico_persistido(ativo.id, desde)
 
     def buscar_ou_criar_indice(self, ticker: str, nome: str) -> Ativo:
         ativo = self._ativo_repository.buscar_por_ticker(ticker)
@@ -70,7 +82,7 @@ class AtivoService:
         periodo = (
             politica.periodo_backfill_de(ativo.tipo)
             if persistidas < politica.minimo_cotacoes
-            else PeriodoHistorico.UM_MES
+            else PeriodoHistorico.UMA_SEMANA
         )
         self._coletar_historico(ativo, periodo)
 

@@ -135,6 +135,7 @@ def _dados_mercado_service(settings: Settings, cache: MercadoCache) -> DadosMerc
         ),
         cache,
         ttl_cotacao_atual=settings.cache_ttl_cotacao_atual_segundos,
+        ttl_historico=settings.cache_ttl_historico_segundos,
     )
 
 

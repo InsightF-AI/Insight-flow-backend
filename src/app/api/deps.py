@@ -232,6 +232,7 @@ def get_dados_mercado_service(
         ),
         mercado_cache,
         ttl_cotacao_atual=settings.cache_ttl_cotacao_atual_segundos,
+        ttl_historico=settings.cache_ttl_historico_segundos,
     )
 
 
