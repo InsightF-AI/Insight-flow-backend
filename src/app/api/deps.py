@@ -1,8 +1,10 @@
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from functools import lru_cache
+from uuid import UUID
 
 import httpx
 import redis
+import redis.asyncio
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session, sessionmaker
@@ -17,6 +19,9 @@ from app.domain.entities.usuario import Usuario
 from app.integrations.bcb.client import BcbClient
 from app.integrations.binance.client import BinanceClient
 from app.integrations.brapi.client import BrapiClient
+from app.notifications.barramento import BarramentoNotificacoes
+from app.notifications.canal import CanalTempoReal
+from app.notifications.redis_barramento import RedisBarramentoNotificacoes
 from app.repositories.interfaces.alerta_repository import AlertaRepository
 from app.repositories.interfaces.analise_ia_repository import AnaliseIARepository
 from app.repositories.interfaces.ativo_repository import AtivoRepository
@@ -179,6 +184,31 @@ def get_mercado_cache(settings: Settings = Depends(get_settings)) -> MercadoCach
 
 
 @lru_cache
+def _redis_async_client(redis_url: str) -> redis.asyncio.Redis:
+    return redis.asyncio.Redis.from_url(redis_url)
+
+
+def get_barramento_notificacoes(
+    settings: Settings = Depends(get_settings),
+) -> BarramentoNotificacoes:
+    return RedisBarramentoNotificacoes(
+        _redis_client(settings.redis_url), _redis_async_client(settings.redis_url)
+    )
+
+
+def get_buscador_usuario(
+    settings: Settings = Depends(get_settings),
+) -> Callable[[UUID], Usuario | None]:
+    fabrica = _session_factory(settings.database_url)
+
+    def buscar(usuario_id: UUID) -> Usuario | None:
+        with fabrica() as session:
+            return SqlAlchemyUsuarioRepository(session).buscar_por_id(usuario_id)
+
+    return buscar
+
+
+@lru_cache
 def _binance_http_client(base_url: str) -> httpx.Client:
     return httpx.Client(base_url=base_url, timeout=10.0)
 
@@ -296,8 +326,9 @@ def get_portfolio_service(
 
 def get_notificacao_service(
     notificacao_repository: NotificacaoRepository = Depends(get_notificacao_repository),
+    barramento: BarramentoNotificacoes = Depends(get_barramento_notificacoes),
 ) -> NotificacaoService:
-    return NotificacaoService(notificacao_repository)
+    return NotificacaoService(notificacao_repository, canais=[CanalTempoReal(barramento)])
 
 
 def get_analise_ia_repository(

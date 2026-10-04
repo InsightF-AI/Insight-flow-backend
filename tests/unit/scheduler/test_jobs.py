@@ -1,10 +1,11 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.core.config import Settings
-from app.scheduler.jobs import _dados_mercado_service, registrar_jobs
+from app.scheduler.jobs import _dados_mercado_service, _notificacao_service, registrar_jobs
 from app.services.cached_dados_mercado_service import CachedDadosMercadoService
 from app.services.roteador_dados_mercado_service import RoteadorDadosMercadoService
 from tests.fixtures.fake_mercado_cache import FakeMercadoCache
+from tests.fixtures.fake_notificacao_repository import FakeNotificacaoRepository
 
 
 def _ids(settings: Settings) -> set[str]:
@@ -70,3 +71,9 @@ def test_dados_mercado_do_scheduler_envolve_o_roteador_no_cache():
 
     assert isinstance(service, CachedDadosMercadoService)
     assert isinstance(service._interno, RoteadorDadosMercadoService)
+
+
+def test_notificacao_service_do_scheduler_tem_o_canal_tempo_real():
+    service = _notificacao_service(Settings(_env_file=None), FakeNotificacaoRepository())
+
+    assert [type(canal).__name__ for canal in service._canais] == ["CanalTempoReal"]

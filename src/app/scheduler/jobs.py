@@ -4,6 +4,7 @@ from functools import lru_cache
 
 import httpx
 import redis
+import redis.asyncio
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.orm import sessionmaker
 
@@ -14,6 +15,9 @@ from app.domain.enums.tipo_ativo import TipoAtivo
 from app.integrations.bcb.client import BcbClient
 from app.integrations.binance.client import BinanceClient
 from app.integrations.brapi.client import BrapiClient
+from app.notifications.canal import CanalTempoReal
+from app.notifications.redis_barramento import RedisBarramentoNotificacoes
+from app.repositories.interfaces.notificacao_repository import NotificacaoRepository
 from app.repositories.sqlalchemy.alerta_repository import SqlAlchemyAlertaRepository
 from app.repositories.sqlalchemy.ativo_repository import SqlAlchemyAtivoRepository
 from app.repositories.sqlalchemy.cotacao_repository import SqlAlchemyCotacaoRepository
@@ -103,6 +107,20 @@ def _redis_client(redis_url: str) -> redis.Redis:
     return redis.Redis.from_url(redis_url)
 
 
+@lru_cache
+def _redis_async_client(redis_url: str) -> redis.asyncio.Redis:
+    return redis.asyncio.Redis.from_url(redis_url)
+
+
+def _notificacao_service(
+    settings: Settings, notificacao_repository: NotificacaoRepository
+) -> NotificacaoService:
+    barramento = RedisBarramentoNotificacoes(
+        _redis_client(settings.redis_url), _redis_async_client(settings.redis_url)
+    )
+    return NotificacaoService(notificacao_repository, canais=[CanalTempoReal(barramento)])
+
+
 def _dados_mercado_service(settings: Settings, cache: MercadoCache) -> DadosMercadoService:
     brapi_client = BrapiClient(
         _brapi_http_client(settings.brapi_base_url),
@@ -157,7 +175,7 @@ def _executar_ciclo(settings: Settings, tipos_ativo: set[TipoAtivo]) -> None:
                 alerta_repository, ativo_repository, dados_mercado_service, cambio_service
             ),
             SinalService(ativo_repository, cotacao_repository, indicador_service, sinal_repository),
-            NotificacaoService(notificacao_repository),
+            _notificacao_service(settings, notificacao_repository),
             politica=settings.politica_historico(),
             ao_falhar_ativo=session.rollback,
         )
@@ -209,7 +227,7 @@ def _executar_resumos_diarios(settings: Settings) -> None:
             SqlAlchemyCotacaoRepository(session),
         )
         resumo_service = ResumoCarteiraService(
-            NotificacaoService(notificacao_repository),
+            _notificacao_service(settings, notificacao_repository),
             portfolio_service,
             criar_provedor_llm(settings),
         )
