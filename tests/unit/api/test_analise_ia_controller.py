@@ -1,3 +1,4 @@
+from decimal import Decimal
 from uuid import uuid4
 
 from app.ai.providers.base import ChamadaFerramenta, RespostaLLM
@@ -237,3 +238,23 @@ def test_chat_com_duas_violacoes_retorna_502(client, auth_headers, provedor_llm)
     )
 
     assert resposta.status_code == 502
+
+
+def test_analise_com_provedor_fora_devolve_a_anterior_desatualizada(
+    client, auth_headers, ativo_repository, cotacao_repository, provedor_llm
+):
+    _preparar_ativo(ativo_repository, cotacao_repository)
+    provedor_llm.enfileirar("Primeira analise.")
+    client.get(f"/api/v1/ativos/{ATIVO_PETR4.id}/analise", headers=auth_headers)
+    nova = gerar_cotacoes(ATIVO_PETR4.id, quantidade=61)[-1]
+    nova.fechamento = Decimal(90)
+    cotacao_repository.salvar_muitas([nova])
+    provedor_llm.enfileirar(LLMIndisponivelError("fora"))
+
+    resposta = client.get(f"/api/v1/ativos/{ATIVO_PETR4.id}/analise", headers=auth_headers)
+
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert corpo["texto"] == "Primeira analise."
+    assert corpo["desatualizada"] is True
+    assert corpo["aviso_legal"] == _AVISO

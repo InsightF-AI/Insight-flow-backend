@@ -10,6 +10,7 @@ from app.services.analise_ia_service import AnaliseIAService
 from app.services.exceptions import (
     AtivoNaoEncontradoError,
     ContextoInsuficienteError,
+    LLMCotaExcedidaError,
     LLMIndisponivelError,
     RespostaViolaGuardrailError,
 )
@@ -201,3 +202,42 @@ def test_gerado_em_e_timezone_aware(cenario):
 
     assert resultado.analise.gerado_em.tzinfo is not None
     assert resultado.analise.gerado_em <= datetime.now(UTC)
+
+
+def _invalidar_cache(cotacao_repository) -> None:
+    nova = gerar_cotacoes(_ATIVO.id, quantidade=61)[-1]
+    nova.fechamento = Decimal(90)
+    cotacao_repository.salvar_muitas([nova])
+
+
+@pytest.mark.parametrize(
+    "falha",
+    [LLMIndisponivelError("fora"), LLMCotaExcedidaError(30), RespostaViolaGuardrailError("x")],
+)
+def test_falha_do_provedor_devolve_a_analise_anterior_marcada_como_desatualizada(cenario, falha):
+    service, provedor, cotacao_repository, _ = cenario
+    provedor.enfileirar("Primeira analise.")
+    primeira = service.analisar_ativo(_ATIVO.id)
+    _invalidar_cache(cotacao_repository)
+    provedor.enfileirar(falha)
+
+    resultado = service.analisar_ativo(_ATIVO.id)
+
+    assert resultado.analise.id == primeira.analise.id
+    assert resultado.desatualizada is True
+
+
+def test_falha_do_provedor_sem_analise_anterior_propaga_o_erro(cenario):
+    service, provedor, _, _ = cenario
+    provedor.enfileirar(LLMIndisponivelError("fora"))
+
+    with pytest.raises(LLMIndisponivelError):
+        service.analisar_ativo(_ATIVO.id)
+
+
+def test_analise_gerada_ou_em_cache_nao_e_desatualizada(cenario):
+    service, provedor, _, _ = cenario
+    provedor.enfileirar("Primeira analise.")
+
+    assert service.analisar_ativo(_ATIVO.id).desatualizada is False
+    assert service.analisar_ativo(_ATIVO.id).desatualizada is False

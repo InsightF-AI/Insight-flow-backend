@@ -66,3 +66,7 @@ class RespostaViolaGuardrailError(Exception):
 
 class ContextoInsuficienteError(Exception):
     pass
+
+
+class RefreshTokenInvalidoError(Exception):
+    pass

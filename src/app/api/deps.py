@@ -24,6 +24,7 @@ from app.repositories.interfaces.cotacao_repository import CotacaoRepository
 from app.repositories.interfaces.indicador_tecnico_repository import IndicadorTecnicoRepository
 from app.repositories.interfaces.notificacao_repository import NotificacaoRepository
 from app.repositories.interfaces.operacao_repository import OperacaoRepository
+from app.repositories.interfaces.refresh_token_repository import RefreshTokenRepository
 from app.repositories.interfaces.sinal_repository import SinalRepository
 from app.repositories.interfaces.usuario_repository import UsuarioRepository
 from app.repositories.interfaces.watchlist_repository import WatchlistRepository
@@ -36,6 +37,7 @@ from app.repositories.sqlalchemy.indicador_tecnico_repository import (
 )
 from app.repositories.sqlalchemy.notificacao_repository import SqlAlchemyNotificacaoRepository
 from app.repositories.sqlalchemy.operacao_repository import SqlAlchemyOperacaoRepository
+from app.repositories.sqlalchemy.refresh_token_repository import SqlAlchemyRefreshTokenRepository
 from app.repositories.sqlalchemy.sinal_repository import SqlAlchemySinalRepository
 from app.repositories.sqlalchemy.usuario_repository import SqlAlchemyUsuarioRepository
 from app.repositories.sqlalchemy.watchlist_repository import SqlAlchemyWatchlistRepository
@@ -53,6 +55,7 @@ from app.services.mercado_cache import MercadoCache
 from app.services.notificacao_service import NotificacaoService
 from app.services.portfolio_service import PortfolioService
 from app.services.redis_mercado_cache import RedisMercadoCache
+from app.services.refresh_token_service import RefreshTokenService
 from app.services.roteador_dados_mercado_service import RoteadorDadosMercadoService
 from app.services.sinal_service import SinalService
 from app.services.usuario_service import UsuarioService
@@ -78,6 +81,26 @@ def get_usuario_repository(
     session: Session = Depends(get_db_session),
 ) -> UsuarioRepository:
     return SqlAlchemyUsuarioRepository(session)
+
+
+def get_refresh_token_repository(
+    session: Session = Depends(get_db_session),
+) -> RefreshTokenRepository:
+    return SqlAlchemyRefreshTokenRepository(session)
+
+
+def get_refresh_token_service(
+    refresh_token_repository: RefreshTokenRepository = Depends(get_refresh_token_repository),
+    usuario_repository: UsuarioRepository = Depends(get_usuario_repository),
+    settings: Settings = Depends(get_settings),
+) -> RefreshTokenService:
+    return RefreshTokenService(
+        refresh_token_repository,
+        usuario_repository,
+        jwt_secret_key=settings.jwt_secret_key,
+        access_expiracao_minutos=settings.jwt_expiration_minutes,
+        refresh_expiracao_dias=settings.refresh_token_expiracao_dias,
+    )
 
 
 def get_usuario_service(

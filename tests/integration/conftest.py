@@ -12,6 +12,7 @@ from app.db.models.cotacao import CotacaoModel
 from app.db.models.indicador_tecnico import IndicadorTecnicoModel
 from app.db.models.notificacao import NotificacaoModel
 from app.db.models.operacao import OperacaoModel
+from app.db.models.refresh_token import RefreshTokenModel
 from app.db.models.sinal import SinalModel
 from app.db.models.usuario import UsuarioModel
 from app.db.models.watchlist import WatchlistModel

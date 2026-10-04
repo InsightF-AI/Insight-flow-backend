@@ -56,3 +56,10 @@ def test_politica_historico_usa_os_valores_configurados():
 
 def test_backfill_de_cripto_padrao_e_cinco_anos():
     assert Settings(_env_file=None).historico_backfill_periodo_cripto is PeriodoHistorico.CINCO_ANOS
+
+
+def test_validades_padrao_do_access_e_do_refresh_token():
+    settings = Settings(_env_file=None)
+
+    assert settings.jwt_expiration_minutes == 30
+    assert settings.refresh_token_expiracao_dias == 30

@@ -12,7 +12,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://insightflow:insightflow@localhost:5432/insightflow"
 
     jwt_secret_key: str = "dev-secret-key-nao-usar-em-producao"
-    jwt_expiration_minutes: int = 1440
+    jwt_expiration_minutes: int = 30
+    refresh_token_expiracao_dias: int = 30
+
+    cors_origens: list[str] = ["http://localhost:5173"]
 
     brapi_base_url: str = "https://brapi.dev"
     brapi_api_key: str = ""
