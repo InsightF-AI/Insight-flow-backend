@@ -19,6 +19,7 @@ from app.domain.entities.usuario import Usuario
 from app.integrations.bcb.client import BcbClient
 from app.integrations.binance.client import BinanceClient
 from app.integrations.brapi.client import BrapiClient
+from app.integrations.limitadores import limitador_compartilhado
 from app.notifications.barramento import BarramentoNotificacoes
 from app.notifications.canal import CanalTempoReal
 from app.notifications.redis_barramento import RedisBarramentoNotificacoes
@@ -162,7 +163,16 @@ def _brapi_http_client(base_url: str) -> httpx.Client:
 
 
 def get_brapi_client(settings: Settings = Depends(get_settings)) -> BrapiClient:
-    return BrapiClient(_brapi_http_client(settings.brapi_base_url), settings.brapi_api_key or None)
+    return BrapiClient(
+        _brapi_http_client(settings.brapi_base_url),
+        settings.brapi_api_key or None,
+        limitador=limitador_compartilhado(
+            "brapi",
+            settings.brapi_requisicoes_por_minuto,
+            settings.integracoes_espera_maxima_segundos,
+        ),
+        politica=settings.politica_retentativa(),
+    )
 
 
 @lru_cache
@@ -214,7 +224,15 @@ def _binance_http_client(base_url: str) -> httpx.Client:
 
 
 def get_binance_client(settings: Settings = Depends(get_settings)) -> BinanceClient:
-    return BinanceClient(_binance_http_client(settings.binance_base_url))
+    return BinanceClient(
+        _binance_http_client(settings.binance_base_url),
+        limitador=limitador_compartilhado(
+            "binance",
+            settings.binance_requisicoes_por_minuto,
+            settings.integracoes_espera_maxima_segundos,
+        ),
+        politica=settings.politica_retentativa(),
+    )
 
 
 def get_dados_mercado_service(

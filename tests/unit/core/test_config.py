@@ -63,3 +63,26 @@ def test_validades_padrao_do_access_e_do_refresh_token():
 
     assert settings.jwt_expiration_minutes == 30
     assert settings.refresh_token_expiracao_dias == 30
+
+
+def test_limites_das_integracoes_padrao():
+    settings = Settings(_env_file=None)
+
+    assert settings.brapi_requisicoes_por_minuto == 60
+    assert settings.binance_requisicoes_por_minuto == 600
+    assert settings.integracoes_espera_maxima_segundos == 10.0
+
+
+def test_politica_retentativa_usa_os_valores_configurados():
+    settings = Settings(
+        _env_file=None,
+        integracoes_tentativas=5,
+        integracoes_backoff_base_segundos=1.5,
+        integracoes_espera_maxima_segundos=20.0,
+    )
+
+    politica = settings.politica_retentativa()
+
+    assert politica.tentativas == 5
+    assert politica.backoff_base_segundos == 1.5
+    assert politica.espera_maxima_segundos == 20.0
