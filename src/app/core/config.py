@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     ai_habilitada: bool = False
     ai_provider: str = "gemini"
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.5-flash"
     gemini_base_url: str = "https://generativelanguage.googleapis.com"
     gemini_timeout_segundos: int = 30
     gemini_backoff_segundos: int = 2

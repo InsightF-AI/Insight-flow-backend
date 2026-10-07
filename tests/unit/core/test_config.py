@@ -14,7 +14,7 @@ def test_settings_ia_vem_desabilitada_por_padrao():
     assert settings.ai_habilitada is False
     assert settings.ai_provider == "gemini"
     assert settings.gemini_api_key == ""
-    assert settings.gemini_model == "gemini-2.5-flash"
+    assert settings.gemini_model == "gemini-3.5-flash"
     assert settings.gemini_base_url == "https://generativelanguage.googleapis.com"
     assert settings.gemini_timeout_segundos == 30
     assert settings.gemini_backoff_segundos == 2
