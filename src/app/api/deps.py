@@ -20,25 +20,31 @@ from app.domain.entities.usuario import Usuario
 from app.integrations.bcb.client import BcbClient
 from app.integrations.binance.client import BinanceClient
 from app.integrations.brapi.client import BrapiClient
+from app.integrations.expo.fabrica import criar_expo_client
 from app.integrations.limitadores import limitador_compartilhado
 from app.notifications.barramento import BarramentoNotificacoes
-from app.notifications.canal import CanalTempoReal
+from app.notifications.canais import montar_canais
 from app.notifications.redis_barramento import RedisBarramentoNotificacoes
 from app.repositories.interfaces.alerta_repository import AlertaRepository
 from app.repositories.interfaces.analise_ia_repository import AnaliseIARepository
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.cotacao_repository import CotacaoRepository
+from app.repositories.interfaces.dispositivo_push_repository import DispositivoPushRepository
 from app.repositories.interfaces.indicador_tecnico_repository import IndicadorTecnicoRepository
 from app.repositories.interfaces.notificacao_repository import NotificacaoRepository
 from app.repositories.interfaces.operacao_repository import OperacaoRepository
 from app.repositories.interfaces.refresh_token_repository import RefreshTokenRepository
 from app.repositories.interfaces.sinal_repository import SinalRepository
+from app.repositories.interfaces.ticket_push_repository import TicketPushRepository
 from app.repositories.interfaces.usuario_repository import UsuarioRepository
 from app.repositories.interfaces.watchlist_repository import WatchlistRepository
 from app.repositories.sqlalchemy.alerta_repository import SqlAlchemyAlertaRepository
 from app.repositories.sqlalchemy.analise_ia_repository import SqlAlchemyAnaliseIARepository
 from app.repositories.sqlalchemy.ativo_repository import SqlAlchemyAtivoRepository
 from app.repositories.sqlalchemy.cotacao_repository import SqlAlchemyCotacaoRepository
+from app.repositories.sqlalchemy.dispositivo_push_repository import (
+    SqlAlchemyDispositivoPushRepository,
+)
 from app.repositories.sqlalchemy.indicador_tecnico_repository import (
     SqlAlchemyIndicadorTecnicoRepository,
 )
@@ -46,6 +52,7 @@ from app.repositories.sqlalchemy.notificacao_repository import SqlAlchemyNotific
 from app.repositories.sqlalchemy.operacao_repository import SqlAlchemyOperacaoRepository
 from app.repositories.sqlalchemy.refresh_token_repository import SqlAlchemyRefreshTokenRepository
 from app.repositories.sqlalchemy.sinal_repository import SqlAlchemySinalRepository
+from app.repositories.sqlalchemy.ticket_push_repository import SqlAlchemyTicketPushRepository
 from app.repositories.sqlalchemy.usuario_repository import SqlAlchemyUsuarioRepository
 from app.repositories.sqlalchemy.watchlist_repository import SqlAlchemyWatchlistRepository
 from app.services.alerta_service import AlertaService
@@ -56,6 +63,7 @@ from app.services.cached_dados_mercado_service import CachedDadosMercadoService
 from app.services.cambio_service import BcbCambioService, CambioService
 from app.services.chat_service import ChatService
 from app.services.dados_mercado_service import DadosMercadoService
+from app.services.dispositivo_push_service import DispositivoPushService
 from app.services.exceptions import LLMIndisponivelError
 from app.services.indicador_service import IndicadorService
 from app.services.mercado_cache import MercadoCache
@@ -94,6 +102,24 @@ def get_refresh_token_repository(
     session: Session = Depends(get_db_session),
 ) -> RefreshTokenRepository:
     return SqlAlchemyRefreshTokenRepository(session)
+
+
+def get_dispositivo_push_repository(
+    session: Session = Depends(get_db_session),
+) -> DispositivoPushRepository:
+    return SqlAlchemyDispositivoPushRepository(session)
+
+
+def get_ticket_push_repository(
+    session: Session = Depends(get_db_session),
+) -> TicketPushRepository:
+    return SqlAlchemyTicketPushRepository(session)
+
+
+def get_dispositivo_push_service(
+    dispositivo_repository: DispositivoPushRepository = Depends(get_dispositivo_push_repository),
+) -> DispositivoPushService:
+    return DispositivoPushService(dispositivo_repository)
 
 
 def get_refresh_token_service(
@@ -315,9 +341,7 @@ def get_alerta_service(
     dados_mercado_service: DadosMercadoService = Depends(get_dados_mercado_service),
     cambio_service: CambioService = Depends(get_cambio_service),
 ) -> AlertaService:
-    return AlertaService(
-        alerta_repository, ativo_repository, dados_mercado_service, cambio_service
-    )
+    return AlertaService(alerta_repository, ativo_repository, dados_mercado_service, cambio_service)
 
 
 def get_operacao_repository(
@@ -347,8 +371,20 @@ def get_portfolio_service(
 def get_notificacao_service(
     notificacao_repository: NotificacaoRepository = Depends(get_notificacao_repository),
     barramento: BarramentoNotificacoes = Depends(get_barramento_notificacoes),
+    dispositivo_repository: DispositivoPushRepository = Depends(get_dispositivo_push_repository),
+    ticket_repository: TicketPushRepository = Depends(get_ticket_push_repository),
+    settings: Settings = Depends(get_settings),
 ) -> NotificacaoService:
-    return NotificacaoService(notificacao_repository, canais=[CanalTempoReal(barramento)])
+    return NotificacaoService(
+        notificacao_repository,
+        canais=montar_canais(
+            settings,
+            barramento,
+            dispositivo_repository,
+            ticket_repository,
+            criar_expo_client(settings),
+        ),
+    )
 
 
 def get_analise_ia_repository(

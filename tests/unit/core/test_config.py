@@ -93,3 +93,13 @@ def test_logs_padrao_sao_json_em_info():
 
     assert settings.log_nivel == "INFO"
     assert settings.log_formato == "json"
+
+
+def test_padroes_do_push_expo():
+    settings = Settings(_env_file=None)
+
+    assert settings.expo_push_habilitado is True
+    assert settings.expo_base_url == "https://exp.host"
+    assert settings.expo_access_token == ""
+    assert settings.expo_requisicoes_por_minuto == 300
+    assert settings.expo_recibos_intervalo_minutos == 30

@@ -45,11 +45,14 @@ def executar_com_retentativa(
     descricao: str,
     dormir: Callable[[float], None] = time.sleep,
     aleatorio: Callable[[], float] = random.random,
+    retentar_falha_de_rede: Callable[[httpx.TransportError], bool] = lambda _: True,
 ) -> httpx.Response:
     for tentativa in range(1, politica.tentativas):
         try:
             resposta = requisicao()
         except httpx.TransportError as exc:
+            if not retentar_falha_de_rede(exc):
+                raise
             motivo = type(exc).__name__
             espera = None
         else:

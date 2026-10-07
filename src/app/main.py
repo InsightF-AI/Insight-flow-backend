@@ -9,6 +9,7 @@ from app.api.v1.controllers.alertas import router as alertas_router
 from app.api.v1.controllers.analise_ia import router as analise_ia_router
 from app.api.v1.controllers.ativos import router as ativos_router
 from app.api.v1.controllers.auth import router as auth_router
+from app.api.v1.controllers.dispositivos import router as dispositivos_router
 from app.api.v1.controllers.notificacoes import router as notificacoes_router
 from app.api.v1.controllers.portfolio import router as portfolio_router
 from app.api.v1.controllers.usuarios import router as usuarios_router
@@ -48,6 +49,7 @@ app.include_router(watchlist_router, prefix="/api/v1")
 app.include_router(ativos_router, prefix="/api/v1")
 app.include_router(alertas_router, prefix="/api/v1")
 app.include_router(notificacoes_router, prefix="/api/v1")
+app.include_router(dispositivos_router, prefix="/api/v1")
 app.include_router(portfolio_router, prefix="/api/v1")
 app.include_router(analise_ia_router, prefix="/api/v1")
 

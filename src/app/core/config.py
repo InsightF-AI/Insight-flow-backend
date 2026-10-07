@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     integracoes_tentativas: int = 3
     integracoes_backoff_base_segundos: float = 0.5
     integracoes_espera_maxima_segundos: float = 10.0
+    expo_push_habilitado: bool = True
+    expo_base_url: str = "https://exp.host"
+    expo_access_token: str = ""
+    expo_requisicoes_por_minuto: int = 300
+    expo_recibos_intervalo_minutos: int = 30
 
     redis_url: str = "redis://localhost:6381/0"
     cache_ttl_cotacao_atual_segundos: int = 60

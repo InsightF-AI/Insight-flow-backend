@@ -9,12 +9,14 @@ from app.api.deps import (
     get_barramento_notificacoes,
     get_cotacao_repository,
     get_dados_mercado_service,
+    get_dispositivo_push_repository,
     get_indicador_tecnico_repository,
     get_operacao_repository,
     get_portfolio_service,
     get_provedor_llm,
     get_refresh_token_repository,
     get_sinal_repository,
+    get_ticket_push_repository,
     get_usuario_repository,
     get_watchlist_repository,
 )
@@ -26,11 +28,13 @@ from tests.fixtures.fake_barramento_notificacoes import FakeBarramentoNotificaco
 from tests.fixtures.fake_cambio_service import FakeCambioService
 from tests.fixtures.fake_cotacao_repository import FakeCotacaoRepository
 from tests.fixtures.fake_dados_mercado_service import FakeDadosMercadoService
+from tests.fixtures.fake_dispositivo_push_repository import FakeDispositivoPushRepository
 from tests.fixtures.fake_indicador_tecnico_repository import FakeIndicadorTecnicoRepository
 from tests.fixtures.fake_operacao_repository import FakeOperacaoRepository
 from tests.fixtures.fake_provedor_llm import FakeProvedorLLM
 from tests.fixtures.fake_refresh_token_repository import FakeRefreshTokenRepository
 from tests.fixtures.fake_sinal_repository import FakeSinalRepository
+from tests.fixtures.fake_ticket_push_repository import FakeTicketPushRepository
 from tests.fixtures.fake_usuario_repository import FakeUsuarioRepository
 from tests.fixtures.fake_watchlist_repository import FakeWatchlistRepository
 
@@ -113,6 +117,16 @@ def refresh_token_repository() -> FakeRefreshTokenRepository:
 
 
 @pytest.fixture
+def dispositivo_push_repository() -> FakeDispositivoPushRepository:
+    return FakeDispositivoPushRepository()
+
+
+@pytest.fixture
+def ticket_push_repository() -> FakeTicketPushRepository:
+    return FakeTicketPushRepository()
+
+
+@pytest.fixture
 def client(
     usuario_repository: FakeUsuarioRepository,
     ativo_repository: FakeAtivoRepository,
@@ -126,6 +140,8 @@ def client(
     analise_repository: FakeAnaliseIARepository,
     refresh_token_repository: FakeRefreshTokenRepository,
     barramento_notificacoes: FakeBarramentoNotificacoes,
+    dispositivo_push_repository: FakeDispositivoPushRepository,
+    ticket_push_repository: FakeTicketPushRepository,
 ) -> TestClient:
     app.dependency_overrides[get_usuario_repository] = lambda: usuario_repository
     app.dependency_overrides[get_ativo_repository] = lambda: ativo_repository
@@ -147,6 +163,8 @@ def client(
     app.dependency_overrides[get_analise_ia_repository] = lambda: analise_repository
     app.dependency_overrides[get_refresh_token_repository] = lambda: refresh_token_repository
     app.dependency_overrides[get_barramento_notificacoes] = lambda: barramento_notificacoes
+    app.dependency_overrides[get_dispositivo_push_repository] = lambda: dispositivo_push_repository
+    app.dependency_overrides[get_ticket_push_repository] = lambda: ticket_push_repository
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

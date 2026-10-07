@@ -18,8 +18,10 @@ from app.services.cached_dados_mercado_service import CachedDadosMercadoService
 from app.services.roteador_dados_mercado_service import RoteadorDadosMercadoService
 from app.services.usuario_service import UsuarioService
 from tests.fixtures.fake_barramento_notificacoes import FakeBarramentoNotificacoes
+from tests.fixtures.fake_dispositivo_push_repository import FakeDispositivoPushRepository
 from tests.fixtures.fake_mercado_cache import FakeMercadoCache
 from tests.fixtures.fake_notificacao_repository import FakeNotificacaoRepository
+from tests.fixtures.fake_ticket_push_repository import FakeTicketPushRepository
 from tests.fixtures.fake_usuario_repository import FakeUsuarioRepository
 
 SETTINGS = Settings(jwt_secret_key="segredo-de-teste", jwt_expiration_minutes=60)
@@ -105,12 +107,17 @@ def test_dados_mercado_service_envolve_o_roteador_no_cache():
     assert isinstance(service._interno, RoteadorDadosMercadoService)
 
 
-def test_notificacao_service_da_api_entrega_pelo_canal_tempo_real():
+def test_notificacao_service_publica_no_barramento_e_inclui_o_canal_expo():
     barramento = FakeBarramentoNotificacoes()
 
     service = get_notificacao_service(
-        notificacao_repository=FakeNotificacaoRepository(), barramento=barramento
+        notificacao_repository=FakeNotificacaoRepository(),
+        barramento=barramento,
+        dispositivo_repository=FakeDispositivoPushRepository(),
+        ticket_repository=FakeTicketPushRepository(),
+        settings=Settings(_env_file=None),
     )
     notificacao = service.enviar_resumo_diario(uuid4(), "Resumo", {})
 
     assert barramento.publicados[0][0] == notificacao.usuario_id
+    assert [type(c).__name__ for c in service._canais] == ["CanalTempoReal", "CanalExpo"]

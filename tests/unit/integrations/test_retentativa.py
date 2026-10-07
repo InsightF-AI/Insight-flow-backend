@@ -159,3 +159,35 @@ def test_uma_tentativa_nao_retenta():
 
     assert resposta.status_code == 503
     assert esperas == []
+
+
+def test_falha_de_rede_recusada_pelo_filtro_nao_e_retentada():
+    requisicao = _Sequencia(httpx.ReadTimeout("lento", request=_REQUEST), _resposta(200))
+    esperas: list[float] = []
+
+    with pytest.raises(httpx.ReadTimeout):
+        executar_com_retentativa(
+            requisicao,
+            PoliticaRetentativa(tentativas=3),
+            descricao="teste",
+            dormir=esperas.append,
+            retentar_falha_de_rede=lambda erro: isinstance(erro, httpx.ConnectError),
+        )
+
+    assert requisicao.chamadas == 1
+    assert esperas == []
+
+
+def test_falha_de_rede_aceita_pelo_filtro_e_retentada():
+    requisicao = _Sequencia(httpx.ConnectError("sem rede", request=_REQUEST), _resposta(200))
+
+    resposta = executar_com_retentativa(
+        requisicao,
+        PoliticaRetentativa(tentativas=3),
+        descricao="teste",
+        dormir=lambda _: None,
+        retentar_falha_de_rede=lambda erro: isinstance(erro, httpx.ConnectError),
+    )
+
+    assert resposta.status_code == 200
+    assert requisicao.chamadas == 2

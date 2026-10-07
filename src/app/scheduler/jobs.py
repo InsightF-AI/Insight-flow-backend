@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from functools import lru_cache
 
 import httpx
@@ -15,23 +16,31 @@ from app.domain.enums.tipo_ativo import TipoAtivo
 from app.integrations.bcb.client import BcbClient
 from app.integrations.binance.client import BinanceClient
 from app.integrations.brapi.client import BrapiClient
+from app.integrations.expo.fabrica import criar_expo_client
 from app.integrations.limitadores import limitador_compartilhado
-from app.notifications.canal import CanalTempoReal
+from app.notifications.canais import montar_canais
 from app.notifications.redis_barramento import RedisBarramentoNotificacoes
+from app.repositories.interfaces.dispositivo_push_repository import DispositivoPushRepository
 from app.repositories.interfaces.notificacao_repository import NotificacaoRepository
+from app.repositories.interfaces.ticket_push_repository import TicketPushRepository
 from app.repositories.sqlalchemy.alerta_repository import SqlAlchemyAlertaRepository
 from app.repositories.sqlalchemy.ativo_repository import SqlAlchemyAtivoRepository
 from app.repositories.sqlalchemy.cotacao_repository import SqlAlchemyCotacaoRepository
+from app.repositories.sqlalchemy.dispositivo_push_repository import (
+    SqlAlchemyDispositivoPushRepository,
+)
 from app.repositories.sqlalchemy.indicador_tecnico_repository import (
     SqlAlchemyIndicadorTecnicoRepository,
 )
 from app.repositories.sqlalchemy.notificacao_repository import SqlAlchemyNotificacaoRepository
 from app.repositories.sqlalchemy.operacao_repository import SqlAlchemyOperacaoRepository
 from app.repositories.sqlalchemy.sinal_repository import SqlAlchemySinalRepository
+from app.repositories.sqlalchemy.ticket_push_repository import SqlAlchemyTicketPushRepository
 from app.repositories.sqlalchemy.watchlist_repository import SqlAlchemyWatchlistRepository
 from app.scheduler.ciclo import executar_ciclo_monitoramento
 from app.scheduler.execucao import executar_job
 from app.scheduler.indices_referencia import atualizar_indices_referencia
+from app.scheduler.recibos_push import conferir_recibos_push
 from app.scheduler.resumo_diario import gerar_resumos_diarios
 from app.services.alerta_service import AlertaService
 from app.services.ativo_service import AtivoService
@@ -75,6 +84,13 @@ def registrar_jobs(scheduler: BackgroundScheduler, settings: Settings) -> None:
         timezone="America/Sao_Paulo",
         id="indices_referencia",
     )
+    if settings.expo_push_habilitado:
+        scheduler.add_job(
+            lambda: executar_job("recibos_push", lambda: _executar_recibos_push(settings)),
+            "interval",
+            minutes=settings.expo_recibos_intervalo_minutos,
+            id="recibos_push",
+        )
     if settings.ai_habilitada and settings.gemini_api_key and settings.ai_provider == "gemini":
         scheduler.add_job(
             lambda: executar_job("resumo_diario", lambda: _executar_resumos_diarios(settings)),
@@ -117,12 +133,24 @@ def _redis_async_client(redis_url: str) -> redis.asyncio.Redis:
 
 
 def _notificacao_service(
-    settings: Settings, notificacao_repository: NotificacaoRepository
+    settings: Settings,
+    notificacao_repository: NotificacaoRepository,
+    dispositivo_repository: DispositivoPushRepository,
+    ticket_repository: TicketPushRepository,
 ) -> NotificacaoService:
     barramento = RedisBarramentoNotificacoes(
         _redis_client(settings.redis_url), _redis_async_client(settings.redis_url)
     )
-    return NotificacaoService(notificacao_repository, canais=[CanalTempoReal(barramento)])
+    return NotificacaoService(
+        notificacao_repository,
+        canais=montar_canais(
+            settings,
+            barramento,
+            dispositivo_repository,
+            ticket_repository,
+            criar_expo_client(settings),
+        ),
+    )
 
 
 def _dados_mercado_service(settings: Settings, cache: MercadoCache) -> DadosMercadoService:
@@ -194,7 +222,12 @@ def _executar_ciclo(settings: Settings, tipos_ativo: set[TipoAtivo]) -> None:
                 alerta_repository, ativo_repository, dados_mercado_service, cambio_service
             ),
             SinalService(ativo_repository, cotacao_repository, indicador_service, sinal_repository),
-            _notificacao_service(settings, notificacao_repository),
+            _notificacao_service(
+                settings,
+                notificacao_repository,
+                SqlAlchemyDispositivoPushRepository(session),
+                SqlAlchemyTicketPushRepository(session),
+            ),
             politica=settings.politica_historico(),
             ao_falhar_ativo=session.rollback,
         )
@@ -246,7 +279,12 @@ def _executar_resumos_diarios(settings: Settings) -> None:
             SqlAlchemyCotacaoRepository(session),
         )
         resumo_service = ResumoCarteiraService(
-            _notificacao_service(settings, notificacao_repository),
+            _notificacao_service(
+                settings,
+                notificacao_repository,
+                SqlAlchemyDispositivoPushRepository(session),
+                SqlAlchemyTicketPushRepository(session),
+            ),
             portfolio_service,
             criar_provedor_llm(settings),
         )
@@ -256,6 +294,19 @@ def _executar_resumos_diarios(settings: Settings) -> None:
             resumo_service,
             settings.gemini_intervalo_entre_chamadas_segundos,
             ao_falhar_usuario=session.rollback,
+        )
+    finally:
+        session.close()
+
+
+def _executar_recibos_push(settings: Settings) -> None:
+    session = _session_factory(settings.database_url)()
+    try:
+        conferir_recibos_push(
+            SqlAlchemyTicketPushRepository(session),
+            SqlAlchemyDispositivoPushRepository(session),
+            criar_expo_client(settings),
+            agora=datetime.now(UTC),
         )
     finally:
         session.close()
