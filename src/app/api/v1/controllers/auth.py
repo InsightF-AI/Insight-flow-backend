@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_refresh_token_service, get_usuario_service
@@ -9,6 +11,8 @@ from app.services.usuario_service import UsuarioService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+logger = logging.getLogger(__name__)
+
 
 @router.post("/login", response_model=TokenResponse)
 def login(
@@ -19,8 +23,10 @@ def login(
     try:
         usuario = service.autenticar(email=dados.email, senha=dados.senha)
     except CredenciaisInvalidasError as exc:
+        logger.warning("Login recusado.", extra={"evento": "login_recusado"})
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Credenciais inválidas") from exc
 
+    logger.info("Login aceito.", extra={"evento": "login_aceito", "usuario_id": str(usuario.id)})
     return TokenResponse.de(tokens.emitir(usuario.id))
 
 

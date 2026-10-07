@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import uuid4
@@ -327,3 +328,20 @@ def test_criar_alerta_grava_a_fonte_de_dados_informada_pela_busca():
 
     assert item.ativo.fonte_dados == "binance"
     assert item.ativo.tipo is TipoAtivo.CRIPTO
+
+
+def test_alerta_disparado_e_logado(caplog):
+    service = _service([_PETR4])
+    item = service.criar_alerta(
+        usuario_id=uuid4(),
+        ticker="PETR4",
+        tipo_condicao=TipoCondicaoAlerta.PRECO_MAIOR_IGUAL,
+        valor_alvo=Decimal("40.00"),
+    )
+    caplog.set_level(logging.INFO)
+
+    service.avaliar_alertas(item.ativo.id, Decimal("41.00"))
+
+    registro = next(r for r in caplog.records if getattr(r, "evento", None) == "alerta_disparado")
+    assert registro.alerta_id == str(item.alerta.id)
+    assert registro.usuario_id == str(item.alerta.usuario_id)

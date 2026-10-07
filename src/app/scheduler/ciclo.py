@@ -36,12 +36,15 @@ def executar_ciclo_monitoramento(
 ) -> None:
     ids_com_watchlist = set(watchlist_repository.listar_ativos_distintos_ativos())
     ids_com_alerta = set(alerta_repository.listar_ativos_distintos_com_alerta_ativo())
+    processados = 0
+    com_falha = 0
 
     for ativo_id in ids_com_watchlist | ids_com_alerta:
         ativo = ativo_repository.buscar_por_id(ativo_id)
         if ativo is None or ativo.tipo not in tipos_ativo:
             continue
 
+        processados += 1
         try:
             _processar_ativo(
                 ativo_id=ativo_id,
@@ -57,11 +60,21 @@ def executar_ciclo_monitoramento(
                 politica=politica,
             )
         except Exception:
+            com_falha += 1
             logger.warning(
                 "Falha ao processar ativo %s no ciclo de monitoramento.", ativo_id, exc_info=True
             )
             if ao_falhar_ativo is not None:
                 ao_falhar_ativo()
+
+    logger.info(
+        "Ciclo de monitoramento concluido.",
+        extra={
+            "evento": "ciclo_concluido",
+            "ativos_processados": processados,
+            "ativos_com_falha": com_falha,
+        },
+    )
 
 
 def _processar_ativo(

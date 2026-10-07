@@ -109,6 +109,17 @@ class NotificacaoService:
         return notificacao
 
     def _distribuir(self, notificacao: Notificacao) -> None:
+        logger.info(
+            "Notificacao %s gerada.",
+            notificacao.tipo.value,
+            extra={
+                "evento": "notificacao_enviada",
+                "notificacao_id": str(notificacao.id),
+                "tipo": notificacao.tipo.value,
+                "usuario_id": str(notificacao.usuario_id),
+                "ativo_id": str(notificacao.ativo_id) if notificacao.ativo_id else None,
+            },
+        )
         for canal in self._canais:
             try:
                 canal.entregar(notificacao)

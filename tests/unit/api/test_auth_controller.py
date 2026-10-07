@@ -1,3 +1,5 @@
+import logging
+
 from app.core.config import get_settings
 
 
@@ -113,3 +115,31 @@ def test_logout_com_token_desconhecido_retorna_204(client):
     resposta = client.post("/api/v1/auth/logout", json={"refresh_token": "nao-existe"})
 
     assert resposta.status_code == 204
+
+
+def _eventos_auth(caplog) -> list:
+    return [r for r in caplog.records if r.name == "app.api.v1.controllers.auth"]
+
+
+def test_login_aceito_e_logado_sem_email(client, caplog):
+    _cadastrar(client)
+    caplog.set_level(logging.INFO)
+
+    client.post("/api/v1/auth/login", json={"email": "ana@example.com", "senha": "segredo123"})
+
+    registro = _eventos_auth(caplog)[-1]
+    assert registro.evento == "login_aceito"
+    assert registro.usuario_id
+    assert "ana@example.com" not in registro.getMessage()
+    assert "ana@example.com" not in str(vars(registro))
+
+
+def test_login_recusado_e_logado_como_aviso_sem_email(client, caplog):
+    caplog.set_level(logging.INFO)
+
+    client.post("/api/v1/auth/login", json={"email": "ana@example.com", "senha": "errada123"})
+
+    registro = _eventos_auth(caplog)[-1]
+    assert registro.evento == "login_recusado"
+    assert registro.levelno == logging.WARNING
+    assert "ana@example.com" not in str(vars(registro))

@@ -701,6 +701,14 @@
         <tr><td class="pname">id</td><td>UUID v4 em string</td></tr>
       </table>
 
+      <div class="subhead">Correlation id (X-Request-ID)</div>
+      <p style="max-width:none; color:var(--ink-muted); font-size:13px;">
+        Toda resposta HTTP traz o header <code>X-Request-ID</code>. O client pode enviar o próprio
+        (até 64 caracteres: letras, números, <code>.</code>, <code>_</code>, <code>-</code>) para rastrear a
+        requisição; senão o backend gera um. Ao reportar um bug, mandem esse id junto — é ele que localiza a
+        requisição nos logs do servidor.
+      </p>
+
       <div class="subhead">Status codes usados na API</div>
       <table class="errors">
         <tr><th>Status</th><th>Quando aparece</th></tr>

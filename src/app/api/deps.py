@@ -5,13 +5,14 @@ from uuid import UUID
 import httpx
 import redis
 import redis.asyncio
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.ai.ferramentas_chat import ExecutorFerramentas
 from app.ai.providers.base import ProvedorLLM
 from app.ai.providers.fabrica import criar_provedor_llm
+from app.api.correlacao import registrar_usuario_na_requisicao
 from app.core.config import Settings, get_settings
 from app.core.security import TokenInvalidoError, decodificar_token
 from app.db.session import criar_session_factory
@@ -397,6 +398,7 @@ def get_chat_service(
 
 
 def get_usuario_atual(
+    request: Request,
     credenciais: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
     service: UsuarioService = Depends(get_usuario_service),
     settings: Settings = Depends(get_settings),
@@ -409,4 +411,5 @@ def get_usuario_atual(
     usuario = service.buscar_por_id(usuario_id)
     if usuario is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Usuario nao encontrado")
+    registrar_usuario_na_requisicao(request, usuario.id)
     return usuario

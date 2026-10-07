@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.api.deps import (
@@ -31,6 +31,10 @@ def _service_com_usuario() -> tuple[UsuarioService, Usuario]:
     return service, usuario
 
 
+def _requisicao() -> Request:
+    return Request({"type": "http", "state": {}})
+
+
 def _credenciais(token: str) -> HTTPAuthorizationCredentials:
     return HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
 
@@ -38,10 +42,12 @@ def _credenciais(token: str) -> HTTPAuthorizationCredentials:
 def test_token_valido_retorna_o_usuario_correspondente():
     service, usuario = _service_com_usuario()
     token = criar_token(usuario.id, SETTINGS.jwt_secret_key, SETTINGS.jwt_expiration_minutes)
+    requisicao = _requisicao()
 
-    encontrado = get_usuario_atual(_credenciais(token), service, SETTINGS)
+    encontrado = get_usuario_atual(requisicao, _credenciais(token), service, SETTINGS)
 
     assert encontrado.id == usuario.id
+    assert requisicao.scope["state"]["usuario_id_log"] == str(usuario.id)
 
 
 def test_token_com_assinatura_invalida_lanca_401():
@@ -49,7 +55,7 @@ def test_token_com_assinatura_invalida_lanca_401():
     token = criar_token(usuario.id, "outro-segredo", SETTINGS.jwt_expiration_minutes)
 
     with pytest.raises(HTTPException) as exc_info:
-        get_usuario_atual(_credenciais(token), service, SETTINGS)
+        get_usuario_atual(_requisicao(), _credenciais(token), service, SETTINGS)
 
     assert exc_info.value.status_code == 401
 
@@ -59,7 +65,7 @@ def test_token_de_usuario_inexistente_lanca_401():
     token = criar_token(uuid4(), SETTINGS.jwt_secret_key, SETTINGS.jwt_expiration_minutes)
 
     with pytest.raises(HTTPException) as exc_info:
-        get_usuario_atual(_credenciais(token), service, SETTINGS)
+        get_usuario_atual(_requisicao(), _credenciais(token), service, SETTINGS)
 
     assert exc_info.value.status_code == 401
 

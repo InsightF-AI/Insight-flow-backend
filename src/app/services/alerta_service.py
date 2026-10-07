@@ -127,6 +127,16 @@ class AlertaService:
             disparou = alerta.avaliar(preco_convertido, agora)
             if disparou:
                 self._alerta_repository.salvar(alerta)
+                logger.info(
+                    "Alerta %s disparado.",
+                    alerta.id,
+                    extra={
+                        "evento": "alerta_disparado",
+                        "alerta_id": str(alerta.id),
+                        "usuario_id": str(alerta.usuario_id),
+                        "ativo_id": str(alerta.ativo_id),
+                    },
+                )
                 disparados.append(alerta)
             elif alerta.ultimo_estado != estado_anterior:
                 self._alerta_repository.salvar(alerta)
