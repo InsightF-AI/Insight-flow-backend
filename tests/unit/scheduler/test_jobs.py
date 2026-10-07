@@ -4,8 +4,10 @@ from app.core.config import Settings
 from app.scheduler.jobs import _dados_mercado_service, _notificacao_service, registrar_jobs
 from app.services.cached_dados_mercado_service import CachedDadosMercadoService
 from app.services.roteador_dados_mercado_service import RoteadorDadosMercadoService
+from tests.fixtures.fake_dispositivo_push_repository import FakeDispositivoPushRepository
 from tests.fixtures.fake_mercado_cache import FakeMercadoCache
 from tests.fixtures.fake_notificacao_repository import FakeNotificacaoRepository
+from tests.fixtures.fake_ticket_push_repository import FakeTicketPushRepository
 
 
 def _ids(settings: Settings) -> set[str]:
@@ -19,6 +21,7 @@ def test_sem_ia_registra_apenas_os_ciclos_de_monitoramento_e_os_indices():
         "ciclo_renda_variavel",
         "ciclo_cripto",
         "indices_referencia",
+        "recibos_push",
     }
 
 
@@ -73,7 +76,29 @@ def test_dados_mercado_do_scheduler_envolve_o_roteador_no_cache():
     assert isinstance(service._interno, RoteadorDadosMercadoService)
 
 
-def test_notificacao_service_do_scheduler_tem_o_canal_tempo_real():
-    service = _notificacao_service(Settings(_env_file=None), FakeNotificacaoRepository())
+def test_notificacao_service_do_scheduler_tem_os_canais_tempo_real_e_expo():
+    service = _notificacao_service(
+        Settings(_env_file=None),
+        FakeNotificacaoRepository(),
+        FakeDispositivoPushRepository(),
+        FakeTicketPushRepository(),
+    )
 
-    assert [type(canal).__name__ for canal in service._canais] == ["CanalTempoReal"]
+    assert [type(canal).__name__ for canal in service._canais] == ["CanalTempoReal", "CanalExpo"]
+
+
+def test_registra_job_de_recibos_push_quando_habilitado():
+    assert "recibos_push" in _ids(Settings(_env_file=None))
+
+
+def test_nao_registra_job_de_recibos_push_quando_desabilitado():
+    assert "recibos_push" not in _ids(Settings(_env_file=None, expo_push_habilitado=False))
+
+
+def test_job_de_recibos_push_usa_o_intervalo_configurado():
+    scheduler = BackgroundScheduler()
+
+    registrar_jobs(scheduler, Settings(_env_file=None, expo_recibos_intervalo_minutos=45))
+
+    job = next(j for j in scheduler.get_jobs() if j.id == "recibos_push")
+    assert job.trigger.interval.total_seconds() == 45 * 60

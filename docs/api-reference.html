@@ -588,6 +588,11 @@
       <a href="#ep-nt-ws"><span class="m ws">WS</span>/notificacoes/ws</a>
     </div>
     <div class="toc-group">
+      <div class="toc-group-title">Push mobile</div>
+      <a href="#ep-disp-add"><span class="m post">POST</span>/dispositivos</a>
+      <a href="#ep-disp-del"><span class="m delete">DEL</span>/dispositivos</a>
+    </div>
+    <div class="toc-group">
       <div class="toc-group-title">Referência</div>
       <a href="#enums"><span class="m"></span>Enums</a>
       <a href="#regras"><span class="m"></span>Regras de sinal</a>
@@ -1772,6 +1777,92 @@ ws.onclose = (ev) =&gt; {
 };</code></pre>
         </div>
       </article>
+    </section>
+
+    <section id="dispositivos-section">
+      <div class="section-head">
+        <span class="section-num">§9.1</span>
+        <h2 class="section-title">Push mobile (Expo)</h2>
+      </div>
+      <p class="section-desc">
+        Toda notificação (sinal, alerta, resumo diário) também é enviada como push para os aparelhos
+        cadastrados do usuário, via Expo Push. O backend não sabe se o app está aberto: com o app em
+        primeiro plano, suprimam o banner e usem o WebSocket.
+      </p>
+
+      <article class="endpoint" id="ep-disp-add">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/v1/dispositivos</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Cadastra o token Expo do aparelho. Idempotente: chamem a cada login e quando o token mudar.
+            Se o token estava ligado a outra conta (troca de usuário no mesmo celular), passa para a conta atual.
+          </p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code>{ "token": "ExponentPushToken[xxxxxxxx]" }</code></pre>
+            </div>
+            <div>
+              <div class="subhead">201 Created (novo) / 200 OK (já existia)</div>
+              <pre><code>{ "token": "ExponentPushToken[xxxxxxxx]", "ativo": true }</code></pre>
+            </div>
+          </div>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">422</td><td>"Token de push invalido" — aceito: <code>ExponentPushToken[...]</code> ou <code>ExpoPushToken[...]</code>, até 255 caracteres</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-disp-del">
+        <div class="endpoint-head">
+          <span class="method delete">DELETE</span>
+          <span class="endpoint-path">/api/v1/dispositivos<span class="param">?token=</span></span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Para de enviar push para o aparelho. Chamem <b>antes</b> de <code>POST /auth/logout</code>
+            (depois do logout não há access token). Idempotente: token desconhecido também responde 204.
+            O token vai na query (URL-encoded) porque tem colchetes.
+          </p>
+          <div class="subhead">204 No Content</div>
+        </div>
+      </article>
+
+      <div class="subhead">Payload do push</div>
+      <pre><code>{
+  "title": "Alerta de preço",
+  "body": "PETR4 atingiu o alvo de 40.00 BRL (preco maior ou igual)",
+  "data": {
+    "notificacao_id": "e41b...",
+    "tipo": "ALERTA_DISPARADO",
+    "ativo_id": "3fa8..."
+  }
+}</code></pre>
+      <table class="params">
+        <tr><th>Campo</th><th>Significado</th></tr>
+        <tr><td class="pname">title</td><td>"Sinal técnico", "Alerta de preço" ou "Resumo diário"</td></tr>
+        <tr><td class="pname">body</td><td>o <code>mensagem</code> da notificação (no resumo diário, o texto completo está no app)</td></tr>
+        <tr><td class="pname">data.notificacao_id</td><td>id para abrir o detalhe e chamar <code>PATCH /notificacoes/{id}/lida</code></td></tr>
+        <tr><td class="pname">data.tipo</td><td>ver <a href="#enums">TipoNotificacao</a></td></tr>
+        <tr><td class="pname">data.ativo_id</td><td>ativo relacionado, ou <code>null</code> no resumo diário</td></tr>
+      </table>
+
+      <div class="callout warn">
+        <div class="callout-title">Roteiro do app (Expo Notifications)</div>
+        <ol>
+          <li>Pedir permissão de notificação.</li>
+          <li>Gerar o token com <code>getExpoPushTokenAsync({ projectId })</code> e enviar em <code>POST /dispositivos</code> a cada login e quando o token mudar.</li>
+          <li>Chamar <code>DELETE /dispositivos?token=...</code> antes de <code>POST /auth/logout</code>.</li>
+          <li>Em primeiro plano, suprimir o banner com <code>Notifications.setNotificationHandler</code> — o WebSocket já entrega.</li>
+          <li>Ao tocar no push, abrir a tela por <code>data.tipo</code>/<code>data.ativo_id</code> e marcar como lida com <code>data.notificacao_id</code>.</li>
+        </ol>
+      </div>
     </section>
 
     <section id="enums">

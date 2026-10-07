@@ -70,3 +70,7 @@ class ContextoInsuficienteError(Exception):
 
 class RefreshTokenInvalidoError(Exception):
     pass
+
+
+class TokenPushInvalidoError(Exception):
+    pass
