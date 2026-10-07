@@ -11,6 +11,7 @@ from app.db.models.ativo import AtivoModel
 from app.db.models.cotacao import CotacaoModel
 from app.db.models.dispositivo_push import DispositivoPushModel
 from app.db.models.indicador_tecnico import IndicadorTecnicoModel
+from app.db.models.inscricao_web_push import InscricaoWebPushModel
 from app.db.models.notificacao import NotificacaoModel
 from app.db.models.operacao import OperacaoModel
 from app.db.models.refresh_token import RefreshTokenModel

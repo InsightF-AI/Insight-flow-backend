@@ -6,34 +6,17 @@ from datetime import UTC, datetime
 
 from app.domain.entities.notificacao import Notificacao
 from app.domain.entities.ticket_push import TicketPush
-from app.domain.enums.tipo_notificacao import TipoNotificacao
 from app.integrations.expo.client import TOKEN_NAO_REGISTRADO, ExpoPushClient
 from app.notifications.canal import CanalNotificacao
+from app.notifications.payload_push import payload_push
 from app.repositories.interfaces.dispositivo_push_repository import DispositivoPushRepository
 from app.repositories.interfaces.ticket_push_repository import TicketPushRepository
 
 logger = logging.getLogger(__name__)
 
-_TITULOS = {
-    TipoNotificacao.SINAL_ATIVADO: "Sinal técnico",
-    TipoNotificacao.ALERTA_DISPARADO: "Alerta de preço",
-    TipoNotificacao.RESUMO_DIARIO: "Resumo diário",
-}
-
 
 def _mensagem(token: str, notificacao: Notificacao) -> dict:
-    return {
-        "to": token,
-        "title": _TITULOS.get(notificacao.tipo, "InsightFlow"),
-        "body": notificacao.mensagem,
-        "data": {
-            "notificacao_id": str(notificacao.id),
-            "tipo": notificacao.tipo.value,
-            "ativo_id": str(notificacao.ativo_id) if notificacao.ativo_id else None,
-        },
-        "sound": "default",
-        "priority": "high",
-    }
+    return {"to": token, **payload_push(notificacao), "sound": "default", "priority": "high"}
 
 
 class CanalExpo(CanalNotificacao):

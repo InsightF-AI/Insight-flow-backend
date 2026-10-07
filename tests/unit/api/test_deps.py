@@ -19,6 +19,7 @@ from app.services.roteador_dados_mercado_service import RoteadorDadosMercadoServ
 from app.services.usuario_service import UsuarioService
 from tests.fixtures.fake_barramento_notificacoes import FakeBarramentoNotificacoes
 from tests.fixtures.fake_dispositivo_push_repository import FakeDispositivoPushRepository
+from tests.fixtures.fake_inscricao_web_push_repository import FakeInscricaoWebPushRepository
 from tests.fixtures.fake_mercado_cache import FakeMercadoCache
 from tests.fixtures.fake_notificacao_repository import FakeNotificacaoRepository
 from tests.fixtures.fake_ticket_push_repository import FakeTicketPushRepository
@@ -115,6 +116,7 @@ def test_notificacao_service_publica_no_barramento_e_inclui_o_canal_expo():
         barramento=barramento,
         dispositivo_repository=FakeDispositivoPushRepository(),
         ticket_repository=FakeTicketPushRepository(),
+        inscricao_repository=FakeInscricaoWebPushRepository(),
         settings=Settings(_env_file=None),
     )
     notificacao = service.enviar_resumo_diario(uuid4(), "Resumo", {})

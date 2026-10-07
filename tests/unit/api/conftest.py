@@ -11,6 +11,7 @@ from app.api.deps import (
     get_dados_mercado_service,
     get_dispositivo_push_repository,
     get_indicador_tecnico_repository,
+    get_inscricao_web_push_repository,
     get_operacao_repository,
     get_portfolio_service,
     get_provedor_llm,
@@ -30,6 +31,7 @@ from tests.fixtures.fake_cotacao_repository import FakeCotacaoRepository
 from tests.fixtures.fake_dados_mercado_service import FakeDadosMercadoService
 from tests.fixtures.fake_dispositivo_push_repository import FakeDispositivoPushRepository
 from tests.fixtures.fake_indicador_tecnico_repository import FakeIndicadorTecnicoRepository
+from tests.fixtures.fake_inscricao_web_push_repository import FakeInscricaoWebPushRepository
 from tests.fixtures.fake_operacao_repository import FakeOperacaoRepository
 from tests.fixtures.fake_provedor_llm import FakeProvedorLLM
 from tests.fixtures.fake_refresh_token_repository import FakeRefreshTokenRepository
@@ -127,6 +129,11 @@ def ticket_push_repository() -> FakeTicketPushRepository:
 
 
 @pytest.fixture
+def inscricao_web_push_repository() -> FakeInscricaoWebPushRepository:
+    return FakeInscricaoWebPushRepository()
+
+
+@pytest.fixture
 def client(
     usuario_repository: FakeUsuarioRepository,
     ativo_repository: FakeAtivoRepository,
@@ -142,6 +149,7 @@ def client(
     barramento_notificacoes: FakeBarramentoNotificacoes,
     dispositivo_push_repository: FakeDispositivoPushRepository,
     ticket_push_repository: FakeTicketPushRepository,
+    inscricao_web_push_repository: FakeInscricaoWebPushRepository,
 ) -> TestClient:
     app.dependency_overrides[get_usuario_repository] = lambda: usuario_repository
     app.dependency_overrides[get_ativo_repository] = lambda: ativo_repository
@@ -165,6 +173,9 @@ def client(
     app.dependency_overrides[get_barramento_notificacoes] = lambda: barramento_notificacoes
     app.dependency_overrides[get_dispositivo_push_repository] = lambda: dispositivo_push_repository
     app.dependency_overrides[get_ticket_push_repository] = lambda: ticket_push_repository
+    app.dependency_overrides[get_inscricao_web_push_repository] = lambda: (
+        inscricao_web_push_repository
+    )
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

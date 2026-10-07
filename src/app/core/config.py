@@ -5,6 +5,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.domain.value_objects.politica_historico import PoliticaHistorico
 from app.integrations.retentativa import PoliticaRetentativa
+from app.integrations.web_push.validacao import HOSTS_PERMITIDOS_PADRAO
+from app.integrations.web_push.vapid import ChaveVapid
 
 
 class Settings(BaseSettings):
@@ -33,6 +35,12 @@ class Settings(BaseSettings):
     expo_access_token: str = ""
     expo_requisicoes_por_minuto: int = 300
     expo_recibos_intervalo_minutos: int = 30
+    web_push_habilitado: bool = True
+    web_push_vapid_chave_privada: str = ""
+    web_push_vapid_contato: str = ""
+    web_push_hosts_permitidos: list[str] = HOSTS_PERMITIDOS_PADRAO
+    web_push_requisicoes_por_minuto: int = 300
+    web_push_ttl_segundos: int = 86400
 
     redis_url: str = "redis://localhost:6381/0"
     cache_ttl_cotacao_atual_segundos: int = 60
@@ -68,6 +76,19 @@ class Settings(BaseSettings):
     chat_max_mensagens: int = 20
     chat_max_caracteres_mensagem: int = 2000
     max_iteracoes_ferramentas: int = 4
+
+    def web_push_configurado(self) -> bool:
+        if not (
+            self.web_push_habilitado
+            and self.web_push_vapid_chave_privada
+            and self.web_push_vapid_contato.startswith(("mailto:", "https://"))
+        ):
+            return False
+        try:
+            ChaveVapid.de_base64url(self.web_push_vapid_chave_privada)
+        except ValueError:
+            return False
+        return True
 
     def politica_retentativa(self) -> PoliticaRetentativa:
         return PoliticaRetentativa(

@@ -22,6 +22,7 @@ from app.integrations.binance.client import BinanceClient
 from app.integrations.brapi.client import BrapiClient
 from app.integrations.expo.fabrica import criar_expo_client
 from app.integrations.limitadores import limitador_compartilhado
+from app.integrations.web_push.fabrica import criar_web_push_client
 from app.notifications.barramento import BarramentoNotificacoes
 from app.notifications.canais import montar_canais
 from app.notifications.redis_barramento import RedisBarramentoNotificacoes
@@ -31,6 +32,9 @@ from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.cotacao_repository import CotacaoRepository
 from app.repositories.interfaces.dispositivo_push_repository import DispositivoPushRepository
 from app.repositories.interfaces.indicador_tecnico_repository import IndicadorTecnicoRepository
+from app.repositories.interfaces.inscricao_web_push_repository import (
+    InscricaoWebPushRepository,
+)
 from app.repositories.interfaces.notificacao_repository import NotificacaoRepository
 from app.repositories.interfaces.operacao_repository import OperacaoRepository
 from app.repositories.interfaces.refresh_token_repository import RefreshTokenRepository
@@ -47,6 +51,9 @@ from app.repositories.sqlalchemy.dispositivo_push_repository import (
 )
 from app.repositories.sqlalchemy.indicador_tecnico_repository import (
     SqlAlchemyIndicadorTecnicoRepository,
+)
+from app.repositories.sqlalchemy.inscricao_web_push_repository import (
+    SqlAlchemyInscricaoWebPushRepository,
 )
 from app.repositories.sqlalchemy.notificacao_repository import SqlAlchemyNotificacaoRepository
 from app.repositories.sqlalchemy.operacao_repository import SqlAlchemyOperacaoRepository
@@ -66,6 +73,7 @@ from app.services.dados_mercado_service import DadosMercadoService
 from app.services.dispositivo_push_service import DispositivoPushService
 from app.services.exceptions import LLMIndisponivelError
 from app.services.indicador_service import IndicadorService
+from app.services.inscricao_web_push_service import InscricaoWebPushService
 from app.services.mercado_cache import MercadoCache
 from app.services.notificacao_service import NotificacaoService
 from app.services.portfolio_service import PortfolioService
@@ -120,6 +128,19 @@ def get_dispositivo_push_service(
     dispositivo_repository: DispositivoPushRepository = Depends(get_dispositivo_push_repository),
 ) -> DispositivoPushService:
     return DispositivoPushService(dispositivo_repository)
+
+
+def get_inscricao_web_push_repository(
+    session: Session = Depends(get_db_session),
+) -> InscricaoWebPushRepository:
+    return SqlAlchemyInscricaoWebPushRepository(session)
+
+
+def get_inscricao_web_push_service(
+    inscricao_repository: InscricaoWebPushRepository = Depends(get_inscricao_web_push_repository),
+    settings: Settings = Depends(get_settings),
+) -> InscricaoWebPushService:
+    return InscricaoWebPushService(inscricao_repository, settings.web_push_hosts_permitidos)
 
 
 def get_refresh_token_service(
@@ -373,6 +394,7 @@ def get_notificacao_service(
     barramento: BarramentoNotificacoes = Depends(get_barramento_notificacoes),
     dispositivo_repository: DispositivoPushRepository = Depends(get_dispositivo_push_repository),
     ticket_repository: TicketPushRepository = Depends(get_ticket_push_repository),
+    inscricao_repository: InscricaoWebPushRepository = Depends(get_inscricao_web_push_repository),
     settings: Settings = Depends(get_settings),
 ) -> NotificacaoService:
     return NotificacaoService(
@@ -383,6 +405,8 @@ def get_notificacao_service(
             dispositivo_repository,
             ticket_repository,
             criar_expo_client(settings),
+            inscricao_repository,
+            criar_web_push_client(settings),
         ),
     )
 

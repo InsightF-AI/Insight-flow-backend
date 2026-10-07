@@ -593,6 +593,12 @@
       <a href="#ep-disp-del"><span class="m delete">DEL</span>/dispositivos</a>
     </div>
     <div class="toc-group">
+      <div class="toc-group-title">Web Push</div>
+      <a href="#ep-wp-chave"><span class="m get">GET</span>.../chave-publica</a>
+      <a href="#ep-wp-add"><span class="m post">POST</span>.../inscricoes</a>
+      <a href="#ep-wp-del"><span class="m delete">DEL</span>.../inscricoes</a>
+    </div>
+    <div class="toc-group">
       <div class="toc-group-title">Referência</div>
       <a href="#enums"><span class="m"></span>Enums</a>
       <a href="#regras"><span class="m"></span>Regras de sinal</a>
@@ -1863,6 +1869,108 @@ ws.onclose = (ev) =&gt; {
           <li>Ao tocar no push, abrir a tela por <code>data.tipo</code>/<code>data.ativo_id</code> e marcar como lida com <code>data.notificacao_id</code>.</li>
         </ol>
       </div>
+    </section>
+
+    <section id="web-push-section">
+      <div class="section-head">
+        <span class="section-num">§9.2</span>
+        <h2 class="section-title">Web Push (navegador)</h2>
+      </div>
+      <p class="section-desc">
+        Toda notificação também é enviada como Web Push para os navegadores inscritos do usuário —
+        chega mesmo com a aba fechada. O payload é o mesmo do push mobile (§9.1). Exige HTTPS
+        (em dev, <code>localhost</code> funciona). No Safari/iOS só funciona com o site instalado na tela inicial.
+      </p>
+
+      <article class="endpoint" id="ep-wp-chave">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/web-push/chave-publica</span>
+          <span class="auth-flag">🔓 público</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Chave pública VAPID, usada como <code>applicationServerKey</code> no <code>subscribe()</code>.</p>
+          <div class="subhead">200 OK</div>
+          <pre><code>{ "chave_publica": "BNc..." }</code></pre>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s5">503</td><td>"Web push nao configurado" — escondam a opção de ativar notificações</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-wp-add">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/v1/web-push/inscricoes</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Registra a inscrição do navegador. Mandem exatamente o <code>subscription.toJSON()</code>.
+            Idempotente: chamem a cada login. Se a inscrição era de outra conta, passa para a conta atual.
+          </p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code>{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/...",
+  "expirationTime": null,
+  "keys": { "p256dh": "BNc...", "auth": "tBH..." }
+}</code></pre>
+            </div>
+            <div>
+              <div class="subhead">201 Created (nova) / 200 OK (já existia)</div>
+              <pre><code>{ "endpoint": "https://fcm.goo..." }</code></pre>
+            </div>
+          </div>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">422</td><td>"Inscricao de web push invalida" — chaves malformadas ou serviço de push não reconhecido</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-wp-del">
+        <div class="endpoint-head">
+          <span class="method delete">DELETE</span>
+          <span class="endpoint-path">/api/v1/web-push/inscricoes<span class="param">?endpoint=</span></span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Remove a inscrição. Chamem antes de <code>POST /auth/logout</code> (e façam <code>subscription.unsubscribe()</code>). Idempotente.</p>
+          <div class="subhead">204 No Content</div>
+        </div>
+      </article>
+
+      <div class="subhead">Inscrição no front</div>
+      <pre><code>const { chave_publica } = await (await fetch("/api/v1/web-push/chave-publica")).json();
+const registro = await navigator.serviceWorker.register("/sw.js");
+const inscricao = await registro.pushManager.subscribe({
+  userVisibleOnly: true,
+  applicationServerKey: chave_publica,
+});
+await fetch("/api/v1/web-push/inscricoes", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+  body: JSON.stringify(inscricao.toJSON()),
+});</code></pre>
+
+      <div class="subhead">Service worker mínimo (<code>sw.js</code>)</div>
+      <pre><code>self.addEventListener("push", (evento) =&gt; {
+  const { title, body, data } = evento.data.json();
+  evento.waitUntil(self.registration.showNotification(title, { body, data }));
+});
+
+self.addEventListener("notificationclick", (evento) =&gt; {
+  evento.notification.close();
+  const { notificacao_id } = evento.notification.data;
+  evento.waitUntil(clients.openWindow(`/notificacoes/${notificacao_id}`));
+});</code></pre>
+      <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
+        A rota aberta no clique é do front; ao abrir, chamem <code>PATCH /notificacoes/{id}/lida</code>.
+        Quando o navegador revoga a inscrição, o backend a apaga sozinho na próxima entrega.
+      </p>
     </section>
 
     <section id="enums">

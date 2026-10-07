@@ -18,9 +18,13 @@ from app.integrations.binance.client import BinanceClient
 from app.integrations.brapi.client import BrapiClient
 from app.integrations.expo.fabrica import criar_expo_client
 from app.integrations.limitadores import limitador_compartilhado
+from app.integrations.web_push.fabrica import criar_web_push_client
 from app.notifications.canais import montar_canais
 from app.notifications.redis_barramento import RedisBarramentoNotificacoes
 from app.repositories.interfaces.dispositivo_push_repository import DispositivoPushRepository
+from app.repositories.interfaces.inscricao_web_push_repository import (
+    InscricaoWebPushRepository,
+)
 from app.repositories.interfaces.notificacao_repository import NotificacaoRepository
 from app.repositories.interfaces.ticket_push_repository import TicketPushRepository
 from app.repositories.sqlalchemy.alerta_repository import SqlAlchemyAlertaRepository
@@ -31,6 +35,9 @@ from app.repositories.sqlalchemy.dispositivo_push_repository import (
 )
 from app.repositories.sqlalchemy.indicador_tecnico_repository import (
     SqlAlchemyIndicadorTecnicoRepository,
+)
+from app.repositories.sqlalchemy.inscricao_web_push_repository import (
+    SqlAlchemyInscricaoWebPushRepository,
 )
 from app.repositories.sqlalchemy.notificacao_repository import SqlAlchemyNotificacaoRepository
 from app.repositories.sqlalchemy.operacao_repository import SqlAlchemyOperacaoRepository
@@ -137,6 +144,7 @@ def _notificacao_service(
     notificacao_repository: NotificacaoRepository,
     dispositivo_repository: DispositivoPushRepository,
     ticket_repository: TicketPushRepository,
+    inscricao_repository: InscricaoWebPushRepository,
 ) -> NotificacaoService:
     barramento = RedisBarramentoNotificacoes(
         _redis_client(settings.redis_url), _redis_async_client(settings.redis_url)
@@ -149,6 +157,8 @@ def _notificacao_service(
             dispositivo_repository,
             ticket_repository,
             criar_expo_client(settings),
+            inscricao_repository,
+            criar_web_push_client(settings),
         ),
     )
 
@@ -227,6 +237,7 @@ def _executar_ciclo(settings: Settings, tipos_ativo: set[TipoAtivo]) -> None:
                 notificacao_repository,
                 SqlAlchemyDispositivoPushRepository(session),
                 SqlAlchemyTicketPushRepository(session),
+                SqlAlchemyInscricaoWebPushRepository(session),
             ),
             politica=settings.politica_historico(),
             ao_falhar_ativo=session.rollback,
@@ -284,6 +295,7 @@ def _executar_resumos_diarios(settings: Settings) -> None:
                 notificacao_repository,
                 SqlAlchemyDispositivoPushRepository(session),
                 SqlAlchemyTicketPushRepository(session),
+                SqlAlchemyInscricaoWebPushRepository(session),
             ),
             portfolio_service,
             criar_provedor_llm(settings),
