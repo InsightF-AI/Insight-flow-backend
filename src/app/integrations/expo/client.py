@@ -11,6 +11,7 @@ from app.integrations.retentativa import (
     POLITICA_PADRAO,
     PoliticaRetentativa,
     executar_com_retentativa,
+    so_falha_de_conexao,
 )
 
 TOKEN_NAO_REGISTRADO = "DeviceNotRegistered"
@@ -19,10 +20,6 @@ _CAMINHO_ENVIO = "/--/api/v2/push/send"
 _CAMINHO_RECIBOS = "/--/api/v2/push/getReceipts"
 _LOTE_ENVIO = 100
 _LOTE_RECIBOS = 1000
-
-
-def _so_falha_de_conexao(erro: httpx.TransportError) -> bool:
-    return isinstance(erro, httpx.ConnectError)
 
 
 @dataclass(frozen=True)
@@ -75,7 +72,7 @@ class ExpoPushClient:
         resultados: list[ResultadoEnvio] = []
         for inicio in range(0, len(mensagens), _LOTE_ENVIO):
             lote = mensagens[inicio : inicio + _LOTE_ENVIO]
-            dados = self._post(_CAMINHO_ENVIO, lote, _so_falha_de_conexao)
+            dados = self._post(_CAMINHO_ENVIO, lote, so_falha_de_conexao)
             tickets = dados.get("data")
             if not isinstance(tickets, list) or len(tickets) != len(lote):
                 raise ExpoIndisponivelError("Resposta de envio inesperada da Expo")

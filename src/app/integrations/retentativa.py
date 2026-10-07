@@ -25,6 +25,10 @@ class PoliticaRetentativa:
 POLITICA_PADRAO = PoliticaRetentativa()
 
 
+def so_falha_de_conexao(erro: httpx.TransportError) -> bool:
+    return isinstance(erro, httpx.ConnectError)
+
+
 def _e_transitorio(resposta: httpx.Response) -> bool:
     return resposta.status_code == 429 or resposta.status_code >= 500
 

@@ -14,6 +14,7 @@ from app.api.v1.controllers.notificacoes import router as notificacoes_router
 from app.api.v1.controllers.portfolio import router as portfolio_router
 from app.api.v1.controllers.usuarios import router as usuarios_router
 from app.api.v1.controllers.watchlist import router as watchlist_router
+from app.api.v1.controllers.web_push import router as web_push_router
 from app.core.config import get_settings
 from app.core.logs import configurar_logs
 from app.scheduler.jobs import registrar_jobs
@@ -50,6 +51,7 @@ app.include_router(ativos_router, prefix="/api/v1")
 app.include_router(alertas_router, prefix="/api/v1")
 app.include_router(notificacoes_router, prefix="/api/v1")
 app.include_router(dispositivos_router, prefix="/api/v1")
+app.include_router(web_push_router, prefix="/api/v1")
 app.include_router(portfolio_router, prefix="/api/v1")
 app.include_router(analise_ia_router, prefix="/api/v1")
 

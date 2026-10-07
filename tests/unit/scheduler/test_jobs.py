@@ -5,6 +5,7 @@ from app.scheduler.jobs import _dados_mercado_service, _notificacao_service, reg
 from app.services.cached_dados_mercado_service import CachedDadosMercadoService
 from app.services.roteador_dados_mercado_service import RoteadorDadosMercadoService
 from tests.fixtures.fake_dispositivo_push_repository import FakeDispositivoPushRepository
+from tests.fixtures.fake_inscricao_web_push_repository import FakeInscricaoWebPushRepository
 from tests.fixtures.fake_mercado_cache import FakeMercadoCache
 from tests.fixtures.fake_notificacao_repository import FakeNotificacaoRepository
 from tests.fixtures.fake_ticket_push_repository import FakeTicketPushRepository
@@ -82,6 +83,7 @@ def test_notificacao_service_do_scheduler_tem_os_canais_tempo_real_e_expo():
         FakeNotificacaoRepository(),
         FakeDispositivoPushRepository(),
         FakeTicketPushRepository(),
+        FakeInscricaoWebPushRepository(),
     )
 
     assert [type(canal).__name__ for canal in service._canais] == ["CanalTempoReal", "CanalExpo"]
