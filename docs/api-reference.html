@@ -1,0 +1,1893 @@
+<!doctype html>
+<title>InsightFlow API</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #eef1ee;
+    --surface: #ffffff;
+    --surface-2: #e5e9e4;
+    --ink: #0f1c17;
+    --ink-muted: #55645d;
+    --ink-faint: #8a978f;
+    --border: #d7ded7;
+    --accent: #93691f;
+    --accent-ink: #ffffff;
+    --accent-soft: #f3e7cf;
+    --get: #1c6f61;
+    --get-soft: #dcefe9;
+    --post: #93691f;
+    --post-soft: #f3e7cf;
+    --patch: #39567c;
+    --patch-soft: #e1e7f0;
+    --delete: #9c3f3a;
+    --delete-soft: #f4e2e0;
+    --code-bg: #101a15;
+    --code-ink: #dfe8e0;
+    --shadow: 0 1px 2px rgba(15, 28, 23, 0.06), 0 6px 16px -8px rgba(15, 28, 23, 0.12);
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0c1310;
+      --surface: #121c17;
+      --surface-2: #17231d;
+      --ink: #e7ede8;
+      --ink-muted: #9fada4;
+      --ink-faint: #6c7972;
+      --border: #24332b;
+      --accent: #dcab55;
+      --accent-ink: #14100a;
+      --accent-soft: #2c2416;
+      --get: #6fcbb6;
+      --get-soft: #142621;
+      --post: #dcab55;
+      --post-soft: #2c2416;
+      --patch: #9db3d8;
+      --patch-soft: #1a2331;
+      --delete: #e19792;
+      --delete-soft: #2c1a19;
+      --code-bg: #08100c;
+      --code-ink: #d9e4dc;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px -8px rgba(0, 0, 0, 0.5);
+      color-scheme: dark;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0c1310;
+    --surface: #121c17;
+    --surface-2: #17231d;
+    --ink: #e7ede8;
+    --ink-muted: #9fada4;
+    --ink-faint: #6c7972;
+    --border: #24332b;
+    --accent: #dcab55;
+    --accent-ink: #14100a;
+    --accent-soft: #2c2416;
+    --get: #6fcbb6;
+    --get-soft: #142621;
+    --post: #dcab55;
+    --post-soft: #2c2416;
+    --patch: #9db3d8;
+    --patch-soft: #1a2331;
+    --delete: #e19792;
+    --delete-soft: #2c1a19;
+    --code-bg: #08100c;
+    --code-ink: #d9e4dc;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px -8px rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 15.5px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 { text-wrap: balance; font-weight: 600; margin: 0; }
+
+  code, .mono, .path, .kbd {
+    font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+
+  a { color: var(--accent); }
+
+  /* ---------- Shell layout ---------- */
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding-inline: 24px;
+    display: grid;
+    grid-template-columns: 230px minmax(0, 1fr);
+    gap: 40px;
+  }
+
+  @media (max-width: 860px) {
+    .shell { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- Masthead ---------- */
+  .masthead {
+    border-bottom: 1px solid var(--border);
+    padding-block: 28px 22px;
+  }
+
+  .masthead-inner {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding-inline: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .brand-line { display: flex; align-items: baseline; gap: 12px; }
+
+  .brand-mark {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    padding: 2px 6px;
+    letter-spacing: 0.04em;
+  }
+
+  .brand-name { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.01em; }
+
+  .brand-sub { color: var(--ink-muted); font-size: 0.94rem; margin-top: 4px; }
+
+  .meta-tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+  }
+
+  .tag {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink-muted);
+    border-radius: 4px;
+    padding: 4px 8px;
+    white-space: nowrap;
+  }
+
+  .tag b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Sidebar / TOC ---------- */
+  .toc {
+    position: sticky;
+    top: calc(env(safe-area-inset-top, 0px) + 20px);
+    align-self: start;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    padding-block: 32px 40px;
+    font-size: 13.5px;
+  }
+
+  .toc-group { margin-bottom: 22px; }
+
+  .toc-group-title {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+    color: var(--ink-faint);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .toc a {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    color: var(--ink-muted);
+    text-decoration: none;
+    padding: 3px 0;
+    border-radius: 3px;
+  }
+
+  .toc a:hover { color: var(--ink); }
+
+  .toc .m {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    font-weight: 600;
+    width: 34px;
+    flex: none;
+    text-align: right;
+  }
+
+  .toc .m.get { color: var(--get); }
+  .toc .m.post { color: var(--post); }
+  .toc .m.patch { color: var(--patch); }
+  .toc .m.delete { color: var(--delete); }
+
+  /* ---------- Main content ---------- */
+  main { padding-block: 32px 80px; min-width: 0; }
+
+  section { margin-bottom: 56px; scroll-margin-top: 20px; }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+
+  .section-num {
+    font-family: "IBM Plex Mono", monospace;
+    color: var(--accent);
+    font-size: 0.9rem;
+  }
+
+  h2.section-title { font-size: 1.5rem; }
+
+  .section-desc {
+    color: var(--ink-muted);
+    max-width: 66ch;
+    margin-top: 10px;
+    margin-bottom: 22px;
+  }
+
+  p { max-width: 68ch; }
+
+  /* ---------- Endpoint card ---------- */
+  .endpoint {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+
+  .endpoint-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .method {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    padding: 4px 8px;
+    border-radius: 5px;
+    flex: none;
+  }
+
+  .method.get { background: var(--get-soft); color: var(--get); }
+  .method.post { background: var(--post-soft); color: var(--post); }
+  .method.patch { background: var(--patch-soft); color: var(--patch); }
+  .method.delete { background: var(--delete-soft); color: var(--delete); }
+
+  .endpoint-path {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 14.5px;
+    font-weight: 500;
+  }
+
+  .endpoint-path .param { color: var(--accent); }
+
+  .auth-flag {
+    margin-left: auto;
+    font-size: 11.5px;
+    font-family: "IBM Plex Mono", monospace;
+    color: var(--ink-faint);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+
+  .auth-flag.locked { color: var(--ink-muted); }
+
+  .endpoint-body { padding: 16px 18px 20px; }
+
+  .endpoint-summary { margin: 0 0 14px; color: var(--ink); }
+
+  .subhead {
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--ink-faint);
+    margin: 16px 0 7px;
+  }
+
+  .subhead:first-of-type { margin-top: 0; }
+
+  table.params {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    margin-bottom: 4px;
+  }
+
+  table.params th {
+    text-align: left;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    font-weight: 600;
+    padding: 4px 10px 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  table.params td {
+    padding: 7px 10px 7px 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    color: var(--ink-muted);
+  }
+
+  table.params tr:last-child td { border-bottom: none; }
+
+  table.params td.pname { font-family: "IBM Plex Mono", monospace; color: var(--ink); white-space: nowrap; }
+  table.params td.ptype { font-family: "IBM Plex Mono", monospace; color: var(--accent); white-space: nowrap; }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    border-radius: 8px;
+    padding: 13px 15px;
+    font-size: 12.8px;
+    line-height: 1.55;
+    overflow-x: auto;
+    margin: 0;
+  }
+
+  pre code { font-family: "IBM Plex Mono", monospace; }
+
+  .tok-key { color: #8fc7ff; }
+  .tok-str { color: #b7e3a8; }
+  .tok-num { color: #f0c674; font-variant-numeric: tabular-nums; }
+  .tok-bool { color: #e39a9a; }
+  .tok-punc { color: var(--ink-faint); }
+  .tok-com  { color: var(--ink-faint); font-style: italic; }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  @media (max-width: 620px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  table.errors {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    margin-top: 6px;
+  }
+
+  table.errors th {
+    text-align: left;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    font-weight: 600;
+    padding: 4px 10px 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  table.errors td {
+    padding: 7px 10px 7px 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--ink-muted);
+  }
+
+  table.errors tr:last-child td { border-bottom: none; }
+
+  .status {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .status.s2 { color: var(--get); }
+  .status.s4 { color: var(--delete); }
+  .status.s5 { color: var(--patch); }
+
+  /* ---------- Callouts ---------- */
+  .callout {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin-block: 16px;
+    box-shadow: var(--shadow);
+  }
+
+  .callout.warn { border-left-color: var(--delete); }
+
+  .callout-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 5px;
+  }
+
+  .callout.warn .callout-title { color: var(--delete); }
+
+  .callout p { margin: 0; color: var(--ink-muted); max-width: none; }
+  .callout ul { margin: 6px 0 0; padding-left: 18px; color: var(--ink-muted); }
+  .callout li { margin-bottom: 3px; }
+
+  /* ---------- Overview cards ---------- */
+  .fact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .fact {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 13px 15px;
+    box-shadow: var(--shadow);
+  }
+
+  .fact-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+
+  .fact-value { font-family: "IBM Plex Mono", monospace; font-size: 13.5px; color: var(--ink); word-break: break-word; }
+
+  /* ---------- Enum chips ---------- */
+  .enum-block { margin-bottom: 18px; }
+  .enum-name { font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 13.5px; margin-bottom: 8px; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    padding: 3px 9px;
+    border-radius: 20px;
+  }
+
+  /* ---------- Rule cards ---------- */
+  .rule-card {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .rule-card:last-child { border-bottom: none; }
+  .rule-weight { font-family: "IBM Plex Mono", monospace; color: var(--ink-faint); font-size: 12px; }
+  .rule-name { font-weight: 600; margin-bottom: 2px; }
+  .rule-desc { color: var(--ink-muted); font-size: 13.5px; margin-bottom: 4px; }
+  .rule-id { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--ink-faint); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding-block: 24px calc(env(safe-area-inset-bottom, 0px) + 24px);
+    color: var(--ink-faint);
+    font-size: 12.5px;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding-inline: 24px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    a, .method { transition: color 0.12s ease, background-color 0.12s ease; }
+  }
+
+  .toc .m.ws { color: var(--accent); }
+  .method.ws { background: var(--accent-soft); color: var(--accent); }
+</style>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <div>
+      <div class="brand-line">
+        <span class="brand-mark">API</span>
+        <span class="brand-name">InsightFlow</span>
+      </div>
+      <div class="brand-sub">Referência de endpoints do backend — para integração web, mobile &amp; desktop</div>
+    </div>
+    <div class="meta-tags">
+      <span class="tag">branch <b>develop</b></span>
+      <span class="tag">base <b>/api/v1</b></span>
+      <span class="tag">auth <b>JWT + refresh</b></span>
+      <span class="tag">atualizado <b>07/10/2026</b></span>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="toc" aria-label="Índice">
+    <div class="toc-group">
+      <div class="toc-group-title">Início</div>
+      <a href="#visao-geral"><span class="m"></span>Visão geral</a>
+      <a href="#erros"><span class="m"></span>Erros &amp; formatos</a>
+      <a href="#autenticacao"><span class="m"></span>Autenticação</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-title">Conta &amp; sessão</div>
+      <a href="#ep-cadastrar"><span class="m post">POST</span>/usuarios</a>
+      <a href="#ep-login"><span class="m post">POST</span>/auth/login</a>
+      <a href="#ep-refresh"><span class="m post">POST</span>/auth/refresh</a>
+      <a href="#ep-logout"><span class="m post">POST</span>/auth/logout</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-title">Ativos</div>
+      <a href="#ep-buscar"><span class="m get">GET</span>/ativos/buscar</a>
+      <a href="#ep-cotacao"><span class="m get">GET</span>.../cotacao</a>
+      <a href="#ep-historico"><span class="m get">GET</span>.../historico</a>
+      <a href="#ep-indicadores"><span class="m get">GET</span>.../indicadores</a>
+      <a href="#ep-sinais"><span class="m get">GET</span>.../sinais</a>
+      <a href="#ep-backtest"><span class="m get">GET</span>.../backtest</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-title">Watchlist</div>
+      <a href="#ep-wl-add"><span class="m post">POST</span>/watchlist</a>
+      <a href="#ep-wl-list"><span class="m get">GET</span>/watchlist</a>
+      <a href="#ep-wl-del"><span class="m delete">DEL</span>/watchlist/&#123;id&#125;</a>
+      <a href="#ep-wl-notif"><span class="m patch">PAT</span>.../notificacao</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-title">Alertas</div>
+      <a href="#ep-al-add"><span class="m post">POST</span>/alertas</a>
+      <a href="#ep-al-list"><span class="m get">GET</span>/alertas</a>
+      <a href="#ep-al-patch"><span class="m patch">PAT</span>/alertas/&#123;id&#125;</a>
+      <a href="#ep-al-del"><span class="m delete">DEL</span>/alertas/&#123;id&#125;</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-title">Portfólio</div>
+      <a href="#ep-op-add"><span class="m post">POST</span>/operacoes</a>
+      <a href="#ep-op-list"><span class="m get">GET</span>/operacoes</a>
+      <a href="#ep-op-del"><span class="m delete">DEL</span>/operacoes/&#123;id&#125;</a>
+      <a href="#ep-pf-posicoes"><span class="m get">GET</span>.../posicoes</a>
+      <a href="#ep-pf-rent"><span class="m get">GET</span>.../rentabilidade</a>
+      <a href="#ep-pf-bench"><span class="m get">GET</span>.../benchmark</a>
+      <a href="#ep-pf-dist"><span class="m get">GET</span>.../distribuicao</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-title">IA</div>
+      <a href="#ep-analise"><span class="m get">GET</span>.../analise</a>
+      <a href="#ep-chat"><span class="m post">POST</span>/chat</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-title">Notificações</div>
+      <a href="#ep-nt-list"><span class="m get">GET</span>/notificacoes</a>
+      <a href="#ep-nt-lida"><span class="m patch">PAT</span>.../lida</a>
+      <a href="#ep-nt-ws"><span class="m ws">WS</span>/notificacoes/ws</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-title">Referência</div>
+      <a href="#enums"><span class="m"></span>Enums</a>
+      <a href="#regras"><span class="m"></span>Regras de sinal</a>
+      <a href="#ambiente"><span class="m"></span>Rodando local</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <section id="visao-geral">
+      <div class="section-head">
+        <span class="section-num">§1</span>
+        <h2 class="section-title">Visão geral</h2>
+      </div>
+      <p class="section-desc">
+        API REST em FastAPI, mais um WebSocket de notificações em tempo real. Recursos: conta e sessão,
+        dados de mercado por ativo (ações, FIIs, ETFs, BDRs e cripto), watchlist, alertas de preço,
+        portfólio, análise por IA e notificações. Tudo em JSON, sob o prefixo abaixo — exceto o health check.
+      </p>
+
+      <div class="fact-grid">
+        <div class="fact">
+          <div class="fact-label">Base URL (dev)</div>
+          <div class="fact-value">http://localhost:8000</div>
+        </div>
+        <div class="fact">
+          <div class="fact-label">Prefixo dos recursos</div>
+          <div class="fact-value">/api/v1</div>
+        </div>
+        <div class="fact">
+          <div class="fact-label">Health check</div>
+          <div class="fact-value">GET /health <span style="color:var(--ink-faint)">(sem prefixo)</span></div>
+        </div>
+        <div class="fact">
+          <div class="fact-label">Autenticação</div>
+          <div class="fact-value">Authorization: Bearer &lt;access_token&gt;</div>
+        </div>
+        <div class="fact">
+          <div class="fact-label">Access token</div>
+          <div class="fact-value">30 min (padrão)</div>
+        </div>
+        <div class="fact">
+          <div class="fact-label">Refresh token</div>
+          <div class="fact-value">30 dias, rotativo</div>
+        </div>
+        <div class="fact">
+          <div class="fact-label">WebSocket</div>
+          <div class="fact-value">ws://localhost:8000/api/v1/notificacoes/ws</div>
+        </div>
+        <div class="fact">
+          <div class="fact-label">Content-Type</div>
+          <div class="fact-value">application/json</div>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-title">Valores decimais chegam como string</div>
+        <p>
+          Todo campo monetário ou numérico com casas decimais (<code>preco</code>, <code>valor_alvo</code>,
+          <code>volume</code>, <code>quantidade</code>, percentuais etc.) é serializado como <b>string</b>:
+          <code>"preco": "38.42"</code>, não <code>38.42</code>. Isso preserva a precisão — convertam no client
+          com uma lib decimal (ou <code>Number()</code> só para exibição). Inteiros puros (<code>expires_in</code>,
+          <code>total_ocorrencias</code>) continuam números.
+        </p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">CORS</div>
+        <p>
+          O backend libera as origens listadas na variável <code>CORS_ORIGENS</code> (padrão:
+          <code>http://localhost:5173</code>). O front web precisa avisar qual origem usa em staging/produção
+          para entrar na lista. Mobile e desktop nativos não são afetados por CORS.
+        </p>
+      </div>
+    </section>
+
+    <section id="erros">
+      <div class="section-head">
+        <span class="section-num">§2</span>
+        <h2 class="section-title">Erros &amp; formatos</h2>
+      </div>
+      <p class="section-desc">
+        Dois formatos de erro convivem na API — tratem os dois no client.
+      </p>
+
+      <div class="subhead">Erro de regra de negócio (a maioria dos 4xx/5xx)</div>
+      <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"detail"</span><span class="tok-punc">:</span> <span class="tok-str">"Ativo nao encontrado"</span>
+<span class="tok-punc">}</span></code></pre>
+
+      <div class="subhead">Erro de validação de payload (422, gerado pelo Pydantic)</div>
+      <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"detail"</span><span class="tok-punc">:</span> <span class="tok-punc">[</span>
+    <span class="tok-punc">{</span>
+      <span class="tok-key">"loc"</span><span class="tok-punc">:</span> <span class="tok-punc">[</span><span class="tok-str">"body"</span><span class="tok-punc">,</span> <span class="tok-str">"valor_alvo"</span><span class="tok-punc">]</span><span class="tok-punc">,</span>
+      <span class="tok-key">"msg"</span><span class="tok-punc">:</span> <span class="tok-str">"Input should be greater than 0"</span><span class="tok-punc">,</span>
+      <span class="tok-key">"type"</span><span class="tok-punc">:</span> <span class="tok-str">"greater_than"</span>
+    <span class="tok-punc">}</span>
+  <span class="tok-punc">]</span>
+<span class="tok-punc">}</span></code></pre>
+      <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
+        Regra prática: se <code>detail</code> é string, mostre a mensagem; se é array, é erro de formulário.
+      </p>
+
+      <div class="subhead">Formatos de campo</div>
+      <table class="params">
+        <tr><th>Tipo</th><th>Formato</th></tr>
+        <tr><td class="pname">decimal</td><td>string, ex: <code>"38.42"</code> (ver §1)</td></tr>
+        <tr><td class="pname">datetime</td><td>ISO 8601 em UTC, ex: <code>"2026-09-15T13:00:00Z"</code></td></tr>
+        <tr><td class="pname">date</td><td><code>"YYYY-MM-DD"</code> (só em operações do portfólio)</td></tr>
+        <tr><td class="pname">id</td><td>UUID v4 em string</td></tr>
+      </table>
+
+      <div class="subhead">Status codes usados na API</div>
+      <table class="errors">
+        <tr><th>Status</th><th>Quando aparece</th></tr>
+        <tr><td class="status s2">401</td><td>Header <code>Authorization</code> ausente ("Not authenticated"), access token inválido/expirado ("Token invalido"), usuário do token não existe mais, credenciais erradas no login, ou refresh token inválido</td></tr>
+        <tr><td class="status s4">404</td><td>Ativo, alerta, item de watchlist, operação, notificação ou regra não encontrados</td></tr>
+        <tr><td class="status s4">409</td><td>E-mail já cadastrado, ou ativo já está na watchlist</td></tr>
+        <tr><td class="status s4">422</td><td>Payload inválido (schema Pydantic) ou regra de negócio (ex: vender mais do que tem, chat sem mensagem do usuário)</td></tr>
+        <tr><td class="status s5">502</td><td>Resposta da IA bloqueada pelo guardrail</td></tr>
+        <tr><td class="status s5">503</td><td>Fonte de dados de mercado indisponível, ou provedor de IA indisponível/desligado/sem cota (pode vir com header <code>Retry-After</code>)</td></tr>
+      </table>
+    </section>
+
+    <section id="autenticacao">
+      <div class="section-head">
+        <span class="section-num">§3</span>
+        <h2 class="section-title">Autenticação</h2>
+      </div>
+      <p class="section-desc">
+        Cadastro, login e refresh retornam o mesmo <code>TokenResponse</code>: um <b>access token</b> JWT curto
+        (vai no header <code>Authorization</code> das rotas <b>🔒 autenticado</b>)
+        e um <b>refresh token</b> opaco e longo, usado só para obter um novo par.
+      </p>
+
+      <div class="callout warn">
+        <div class="callout-title">Regras do refresh — leiam antes de implementar</div>
+        <ul>
+          <li><b>Rotação:</b> cada <code>/auth/refresh</code> devolve um refresh token novo e invalida o anterior. Sempre substitua o refresh salvo pelo que veio na resposta.</li>
+          <li><b>Serializem o refresh:</b> só uma chamada de refresh por vez por sessão. Se duas requisições paralelas tomarem 401 e ambas tentarem renovar com o mesmo refresh token, a segunda é tratada como reuso de token roubado e <b>a sessão inteira é revogada</b> (todos os tokens daquele login) — o usuário cai para o login. Usem uma fila/mutex: a primeira renova, as demais esperam e reaproveitam o novo access token.</li>
+          <li><b>Quando renovar:</b> ao receber 401 em rota autenticada (e repetir a requisição uma vez), ou proativamente um pouco antes de <code>expires_in</code> segundos.</li>
+          <li><b>Refresh falhou (401):</b> sessão acabou — limpe os tokens e mande para o login.</li>
+          <li><b>Armazenamento:</b> o refresh token vale 30 dias; guardem em storage seguro (Keychain/Keystore no mobile). No web, evitem <code>localStorage</code> se possível.</li>
+        </ul>
+      </div>
+
+      <div class="subhead">TokenResponse</div>
+      <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"access_token"</span><span class="tok-punc">:</span> <span class="tok-str">"eyJhbGciOi..."</span><span class="tok-punc">,</span>
+  <span class="tok-key">"refresh_token"</span><span class="tok-punc">:</span> <span class="tok-str">"Xq3v9...k2"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"token_type"</span><span class="tok-punc">:</span> <span class="tok-str">"bearer"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"expires_in"</span><span class="tok-punc">:</span> <span class="tok-num">1800</span>
+<span class="tok-punc">}</span></code></pre>
+      <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
+        <code>expires_in</code> é a validade do access token em segundos.
+      </p>
+
+      <article class="endpoint" id="ep-cadastrar">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/v1/usuarios</span>
+          <span class="auth-flag">🔓 público</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Cria a conta e já devolve os tokens — não precisa logar em seguida.</p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"nome"</span><span class="tok-punc">:</span> <span class="tok-str">"Ana Torres"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"email"</span><span class="tok-punc">:</span> <span class="tok-str">"ana@exemplo.com"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"senha"</span><span class="tok-punc">:</span> <span class="tok-str">"minimo8chars"</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+            <div>
+              <div class="subhead">201 Created</div>
+              <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin:0;"><code>TokenResponse</code> (acima).</p>
+            </div>
+          </div>
+          <div class="subhead">Validação</div>
+          <table class="params">
+            <tr><th>Campo</th><th>Regra</th></tr>
+            <tr><td class="pname">nome</td><td>1–255 caracteres</td></tr>
+            <tr><td class="pname">email</td><td>formato de e-mail válido</td></tr>
+            <tr><td class="pname">senha</td><td>8–128 caracteres</td></tr>
+          </table>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">409</td><td>"E-mail já cadastrado"</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-login">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/v1/auth/login</span>
+          <span class="auth-flag">🔓 público</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Autentica por e-mail e senha. Cada login inicia uma sessão nova (independente das outras).</p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"email"</span><span class="tok-punc">:</span> <span class="tok-str">"ana@exemplo.com"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"senha"</span><span class="tok-punc">:</span> <span class="tok-str">"minimo8chars"</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+            <div>
+              <div class="subhead">200 OK</div>
+              <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin:0;"><code>TokenResponse</code>.</p>
+            </div>
+          </div>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s2">401</td><td>"Credenciais inválidas" — e-mail ou senha errados</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-refresh">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/v1/auth/refresh</span>
+          <span class="auth-flag">🔓 público</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Troca um refresh token válido por um par novo (access + refresh). Não envie o header
+            <code>Authorization</code> — o access pode já estar expirado.
+          </p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"refresh_token"</span><span class="tok-punc">:</span> <span class="tok-str">"Xq3v9...k2"</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+            <div>
+              <div class="subhead">200 OK</div>
+              <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin:0;"><code>TokenResponse</code> com um <b>novo</b> <code>refresh_token</code>.</p>
+            </div>
+          </div>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s2">401</td><td>"Refresh token invalido" — expirado, revogado (logout), já usado, ou usuário desativado. Mandar para o login.</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-logout">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/v1/auth/logout</span>
+          <span class="auth-flag">🔓 público</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Revoga a sessão do refresh token informado (só aquele login — outros dispositivos continuam logados).
+            Idempotente: token desconhecido ou já revogado também responde 204. O access token atual continua
+            válido até expirar (≤ 30 min), então descartem ele no client e fechem o WebSocket.
+          </p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"refresh_token"</span><span class="tok-punc">:</span> <span class="tok-str">"Xq3v9...k2"</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+            <div>
+              <div class="subhead">204 No Content</div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section id="ativos-section">
+      <div class="section-head">
+        <span class="section-num">§4</span>
+        <h2 class="section-title">Ativos</h2>
+      </div>
+      <p class="section-desc">
+        Busca de ativos e dados de mercado (cotação, histórico, indicadores técnicos e sinais).
+        Todas as rotas exigem <b>🔒 autenticado</b>. Renda variável vem da
+        brapi.dev; cripto vem da Binance, sempre cotada em <b>BRL</b>.
+      </p>
+
+      <div class="callout">
+        <div class="callout-title">Cripto</div>
+        <p>
+          Criptomoedas usam o código do ativo como ticker (<code>BTC</code>, <code>ETH</code>, <code>SOL</code>…),
+          com <code>tipo: "CRIPTO"</code> e <code>moeda: "BRL"</code> — preço, histórico e alertas são em reais.
+          Só entram moedas que têm par BRL ativo na Binance. Mercado 24/7: a cotação de cripto se mexe no fim de semana.
+        </p>
+      </div>
+
+      <article class="endpoint" id="ep-buscar">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/ativos/buscar<span class="param">?termo=</span></span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Busca ativos por ticker ou nome. Retorna os resultados da brapi seguidos das criptos cujo código contém
+            o termo. Lista vazia se nada bater. Note que a busca <b>não</b> devolve <code>id</code>: para obter o id
+            interno, adicione à watchlist (ou crie um alerta) pelo ticker.
+          </p>
+          <table class="params">
+            <tr><th>Param</th><th>Tipo</th><th>Descrição</th></tr>
+            <tr><td class="pname">termo</td><td class="ptype">string (query)</td><td>ticker ou parte do nome, ex: <code>petr</code>, <code>btc</code></td></tr>
+          </table>
+          <div class="subhead">200 OK</div>
+          <pre><code><span class="tok-punc">[</span>
+  <span class="tok-punc">{</span>
+    <span class="tok-key">"ticker"</span><span class="tok-punc">:</span> <span class="tok-str">"PETR4"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"nome"</span><span class="tok-punc">:</span> <span class="tok-str">"Petróleo Brasileiro S.A."</span><span class="tok-punc">,</span>
+    <span class="tok-key">"tipo"</span><span class="tok-punc">:</span> <span class="tok-str">"ACAO"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"moeda"</span><span class="tok-punc">:</span> <span class="tok-str">"BRL"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"setor"</span><span class="tok-punc">:</span> <span class="tok-str">"Petróleo, Gás e Biocombustíveis"</span>
+  <span class="tok-punc">}</span><span class="tok-punc">,</span>
+  <span class="tok-punc">{</span>
+    <span class="tok-key">"ticker"</span><span class="tok-punc">:</span> <span class="tok-str">"BTC"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"nome"</span><span class="tok-punc">:</span> <span class="tok-str">"BTC"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"tipo"</span><span class="tok-punc">:</span> <span class="tok-str">"CRIPTO"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"moeda"</span><span class="tok-punc">:</span> <span class="tok-str">"BRL"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"setor"</span><span class="tok-punc">:</span> <span class="tok-bool">null</span>
+  <span class="tok-punc">}</span>
+<span class="tok-punc">]</span></code></pre>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s5">503</td><td>"Fonte de dados de mercado indisponivel" (se só a Binance cair, a busca segue sem cripto)</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-cotacao">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/ativos/<span class="param">{ativo_id}</span>/cotacao</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Cotação atual (cache de 60 s). <code>ativo_id</code> é o UUID interno do ativo — não o ticker.
+            Para cripto, <code>variacao</code> e máxima/mínima são das últimas 24 h.
+          </p>
+          <table class="params">
+            <tr><th>Param</th><th>Tipo</th><th>Descrição</th></tr>
+            <tr><td class="pname">ativo_id</td><td class="ptype">uuid (path)</td><td>id interno do ativo</td></tr>
+          </table>
+          <div class="subhead">200 OK</div>
+          <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"ticker"</span><span class="tok-punc">:</span> <span class="tok-str">"PETR4"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"preco"</span><span class="tok-punc">:</span> <span class="tok-str">"38.42"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"variacao"</span><span class="tok-punc">:</span> <span class="tok-str">"0.57"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"variacao_percentual"</span><span class="tok-punc">:</span> <span class="tok-str">"1.51"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"maxima_dia"</span><span class="tok-punc">:</span> <span class="tok-str">"38.90"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"minima_dia"</span><span class="tok-punc">:</span> <span class="tok-str">"37.85"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"volume"</span><span class="tok-punc">:</span> <span class="tok-str">"42318700"</span>
+<span class="tok-punc">}</span></code></pre>
+          <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
+            <code>variacao_percentual</code> já vem em pontos percentuais (<code>"1.51"</code> = 1,51%).
+          </p>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Ativo nao encontrado" ou "Cotacao nao encontrada para o ativo"</td></tr>
+            <tr><td class="status s5">503</td><td>"Fonte de dados de mercado indisponivel"</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-historico">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/ativos/<span class="param">{ativo_id}</span>/historico<span class="param">?periodo=</span></span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Série histórica OHLCV com <b>candles diários</b>, em ordem cronológica (mais antigo primeiro).</p>
+          <table class="params">
+            <tr><th>Param</th><th>Tipo</th><th>Descrição</th></tr>
+            <tr><td class="pname">ativo_id</td><td class="ptype">uuid (path)</td><td>id interno do ativo</td></tr>
+            <tr><td class="pname">periodo</td><td class="ptype">enum (query)</td><td>ver <a href="#enums">PeriodoHistorico</a>. Default: <code>1M</code></td></tr>
+          </table>
+          <div class="subhead">Comportamento por período</div>
+          <table class="params">
+            <tr><th>Período</th><th>O que volta</th></tr>
+            <tr><td class="pname">1D</td><td><b>Um único ponto</b> montado com a cotação atual (não é intraday). Para gráfico do dia, usem <code>/cotacao</code>.</td></tr>
+            <tr><td class="pname">1S / 1M / 3M</td><td>Candles diários dos últimos 7 / 30 / 90 dias corridos.</td></tr>
+            <tr><td class="pname">1A / 5A</td><td>Candles diários dos últimos 365 / 1825 dias <b>do que o backend já tem guardado</b>. Para cripto o backfill é de 5 anos; para renda variável começa com ~3 meses e cresce a cada dia — a série pode vir mais curta que o período. Não assumam quantidade de pontos.</td></tr>
+          </table>
+          <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
+            Fim de semana e feriado não têm candle para renda variável (cripto tem todo dia). Cache de 24 h por período.
+          </p>
+          <div class="subhead">200 OK</div>
+          <pre><code><span class="tok-punc">[</span>
+  <span class="tok-punc">{</span>
+    <span class="tok-key">"data"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-09-12T03:00:00Z"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"abertura"</span><span class="tok-punc">:</span> <span class="tok-str">"37.90"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"maxima"</span><span class="tok-punc">:</span> <span class="tok-str">"38.90"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"minima"</span><span class="tok-punc">:</span> <span class="tok-str">"37.85"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"fechamento"</span><span class="tok-punc">:</span> <span class="tok-str">"38.42"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"volume"</span><span class="tok-punc">:</span> <span class="tok-str">"42318700"</span>
+  <span class="tok-punc">}</span>
+<span class="tok-punc">]</span></code></pre>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Ativo nao encontrado" ou "Historico nao encontrado para o ativo"</td></tr>
+            <tr><td class="status s4">422</td><td><code>periodo</code> fora do enum</td></tr>
+            <tr><td class="status s5">503</td><td>"Fonte de dados de mercado indisponivel"</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-indicadores">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/ativos/<span class="param">{ativo_id}</span>/indicadores</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Calcula e retorna os indicadores técnicos suportados (ver <a href="#enums">TipoIndicador</a>)
+            sobre o histórico diário guardado. Indicadores sem histórico suficiente são omitidos (ex: SMA 200 precisa de 200 pregões),
+            então a lista pode vir parcial ou vazia. <code>SMA</code> aparece até três vezes (períodos 20, 50 e 200 — vejam <code>parametros</code>).
+          </p>
+          <table class="params">
+            <tr><th>Param</th><th>Tipo</th><th>Descrição</th></tr>
+            <tr><td class="pname">ativo_id</td><td class="ptype">uuid (path)</td><td>id interno do ativo</td></tr>
+          </table>
+          <div class="subhead">200 OK</div>
+          <pre><code><span class="tok-punc">[</span>
+  <span class="tok-punc">{</span>
+    <span class="tok-key">"tipo"</span><span class="tok-punc">:</span> <span class="tok-str">"RSI"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"parametros"</span><span class="tok-punc">:</span> <span class="tok-punc">{</span> <span class="tok-key">"periodo"</span><span class="tok-punc">:</span> <span class="tok-num">14</span> <span class="tok-punc">}</span><span class="tok-punc">,</span>
+    <span class="tok-key">"data_calculo"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-09-15T13:00:00Z"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"valor"</span><span class="tok-punc">:</span> <span class="tok-str">"28.4"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"valores_auxiliares"</span><span class="tok-punc">:</span> <span class="tok-bool">null</span>
+  <span class="tok-punc">}</span>
+<span class="tok-punc">]</span></code></pre>
+          <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
+            <code>valores_auxiliares</code> vem preenchido para indicadores multi-linha (MACD, Bollinger) e <code>null</code> nos demais.
+          </p>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Ativo nao encontrado"</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-sinais">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/ativos/<span class="param">{ativo_id}</span>/sinais</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Avalia as <a href="#regras">regras de sinal padrão</a> contra o ativo e retorna os sinais vigentes.
+            Não inclui o backtest — para isso, chame o endpoint abaixo com o <code>regra_id</code>.
+          </p>
+          <table class="params">
+            <tr><th>Param</th><th>Tipo</th><th>Descrição</th></tr>
+            <tr><td class="pname">ativo_id</td><td class="ptype">uuid (path)</td><td>id interno do ativo</td></tr>
+          </table>
+          <div class="subhead">200 OK</div>
+          <pre><code><span class="tok-punc">[</span>
+  <span class="tok-punc">{</span>
+    <span class="tok-key">"id"</span><span class="tok-punc">:</span> <span class="tok-str">"7c1e..."</span><span class="tok-punc">,</span>
+    <span class="tok-key">"ativo_id"</span><span class="tok-punc">:</span> <span class="tok-str">"3fa8..."</span><span class="tok-punc">,</span>
+    <span class="tok-key">"regra_id"</span><span class="tok-punc">:</span> <span class="tok-str">"a1a1a1a1-0000-0000-0000-000000000001"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"regra_nome"</span><span class="tok-punc">:</span> <span class="tok-str">"Sobrevenda RSI"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"regra_descricao"</span><span class="tok-punc">:</span> <span class="tok-str">"RSI(14) abaixo de 30..."</span><span class="tok-punc">,</span>
+    <span class="tok-key">"data_ativacao"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-09-15T13:00:00Z"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"contexto"</span><span class="tok-punc">:</span> <span class="tok-punc">{</span> <span class="tok-key">"valor"</span><span class="tok-punc">:</span> <span class="tok-str">"28.4"</span> <span class="tok-punc">}</span><span class="tok-punc">,</span>
+    <span class="tok-key">"data_desativacao"</span><span class="tok-punc">:</span> <span class="tok-bool">null</span>
+  <span class="tok-punc">}</span>
+<span class="tok-punc">]</span></code></pre>
+          <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
+            <code>contexto.valor</code> é o valor do indicador no momento da ativação (string decimal). Só sinais vigentes são
+            retornados, então <code>data_desativacao</code> vem sempre <code>null</code> aqui.
+          </p>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Ativo nao encontrado"</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-backtest">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/ativos/<span class="param">{ativo_id}</span>/sinais/<span class="param">{regra_id}</span>/backtest</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Retorno médio histórico do ativo 5/20/60 pregões após cada ocorrência da regra.</p>
+          <table class="params">
+            <tr><th>Param</th><th>Tipo</th><th>Descrição</th></tr>
+            <tr><td class="pname">ativo_id</td><td class="ptype">uuid (path)</td><td>id interno do ativo</td></tr>
+            <tr><td class="pname">regra_id</td><td class="ptype">uuid (path)</td><td>ver <a href="#regras">regras de sinal</a></td></tr>
+          </table>
+          <div class="subhead">200 OK</div>
+          <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"regra_id"</span><span class="tok-punc">:</span> <span class="tok-str">"a1a1a1a1-0000-0000-0000-000000000001"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"ativo_id"</span><span class="tok-punc">:</span> <span class="tok-str">"3fa8..."</span><span class="tok-punc">,</span>
+  <span class="tok-key">"total_ocorrencias"</span><span class="tok-punc">:</span> <span class="tok-num">14</span><span class="tok-punc">,</span>
+  <span class="tok-key">"retorno_medio_5_pregoes"</span><span class="tok-punc">:</span> <span class="tok-str">"1.8"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"retorno_medio_20_pregoes"</span><span class="tok-punc">:</span> <span class="tok-str">"3.2"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"retorno_medio_60_pregoes"</span><span class="tok-punc">:</span> <span class="tok-bool">null</span>
+<span class="tok-punc">}</span></code></pre>
+          <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
+            Retornos em <b>pontos percentuais</b> (<code>"1.8"</code> = 1,8%). Vêm <code>null</code> quando não há
+            histórico suficiente para fechar a janela.
+          </p>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Ativo nao encontrado" ou "Regra nao encontrada"</td></tr>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section id="watchlist-section">
+      <div class="section-head">
+        <span class="section-num">§5</span>
+        <h2 class="section-title">Watchlist</h2>
+      </div>
+      <p class="section-desc">
+        Lista de ativos acompanhados pelo usuário logado. Todas as rotas exigem
+        <b>🔒 autenticado</b> e operam sobre o usuário do token.
+      </p>
+
+      <article class="endpoint" id="ep-wl-add">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/v1/watchlist</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Adiciona um ativo pelo ticker (ações, FIIs, cripto…). Cria o ativo na base se ainda não existir e já
+            carrega o histórico inicial — a resposta pode levar alguns segundos na primeira vez de um ticker.
+            O <code>ativo.id</code> devolvido é o que as rotas de <a href="#ativos-section">Ativos</a> usam.
+          </p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"ticker"</span><span class="tok-punc">:</span> <span class="tok-str">"PETR4"</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+            <div>
+              <div class="subhead">201 Created</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"ativo"</span><span class="tok-punc">:</span> <span class="tok-punc">{</span>
+    <span class="tok-key">"id"</span><span class="tok-punc">:</span> <span class="tok-str">"3fa8..."</span><span class="tok-punc">,</span>
+    <span class="tok-key">"ticker"</span><span class="tok-punc">:</span> <span class="tok-str">"PETR4"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"nome"</span><span class="tok-punc">:</span> <span class="tok-str">"Petróleo Brasileiro S.A."</span><span class="tok-punc">,</span>
+    <span class="tok-key">"tipo"</span><span class="tok-punc">:</span> <span class="tok-str">"ACAO"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"setor"</span><span class="tok-punc">:</span> <span class="tok-str">"Petróleo, Gás..."</span><span class="tok-punc">,</span>
+    <span class="tok-key">"moeda"</span><span class="tok-punc">:</span> <span class="tok-str">"BRL"</span>
+  <span class="tok-punc">}</span><span class="tok-punc">,</span>
+  <span class="tok-key">"notificar"</span><span class="tok-punc">:</span> <span class="tok-bool">true</span><span class="tok-punc">,</span>
+  <span class="tok-key">"adicionado_em"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-09-15T13:00:00Z"</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+          </div>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Ativo nao encontrado"</td></tr>
+            <tr><td class="status s4">409</td><td>"Ativo ja esta na watchlist"</td></tr>
+            <tr><td class="status s5">503</td><td>"Fonte de dados de mercado indisponivel"</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-wl-list">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/watchlist</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Lista os itens da watchlist do usuário. Mesmo shape do item retornado no POST, em array.</p>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-wl-del">
+        <div class="endpoint-head">
+          <span class="method delete">DELETE</span>
+          <span class="endpoint-path">/api/v1/watchlist/<span class="param">{ativo_id}</span></span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Remove um ativo da watchlist. <code>ativo_id</code> é o id interno do ativo (não o ticker).</p>
+          <div class="subhead">204 No Content</div>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Item nao encontrado na watchlist"</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-wl-notif">
+        <div class="endpoint-head">
+          <span class="method patch">PATCH</span>
+          <span class="endpoint-path">/api/v1/watchlist/<span class="param">{ativo_id}</span>/notificacao</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Liga/desliga as notificações de sinal técnico para um item da watchlist.</p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code><span class="tok-punc">{</span> <span class="tok-key">"notificar"</span><span class="tok-punc">:</span> <span class="tok-bool">false</span> <span class="tok-punc">}</span></code></pre>
+            </div>
+            <div>
+              <div class="subhead">200 OK</div>
+              <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin:0;">Mesmo shape do item do POST.</p>
+            </div>
+          </div>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Item nao encontrado na watchlist"</td></tr>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section id="alertas-section">
+      <div class="section-head">
+        <span class="section-num">§6</span>
+        <h2 class="section-title">Alertas</h2>
+      </div>
+      <p class="section-desc">
+        Alertas de preço por ativo. Todas as rotas exigem <b>🔒 autenticado</b>.
+        Quando a condição é atingida, chega uma notificação <code>ALERTA_DISPARADO</code> (ver <a href="#notificacoes-section">§9</a>).
+        O alerta dispara na transição — só volta a disparar depois que o preço sair da condição e entrar de novo.
+      </p>
+
+      <article class="endpoint" id="ep-al-add">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/v1/alertas</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Cria um alerta de preço para um ticker. O valor-alvo está na moeda do ativo (BRL para cripto).</p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"ticker"</span><span class="tok-punc">:</span> <span class="tok-str">"PETR4"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"tipo_condicao"</span><span class="tok-punc">:</span> <span class="tok-str">"PRECO_MAIOR_IGUAL"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"valor_alvo"</span><span class="tok-punc">:</span> <span class="tok-str">"40.00"</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+            <div>
+              <div class="subhead">201 Created</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"id"</span><span class="tok-punc">:</span> <span class="tok-str">"9b2c..."</span><span class="tok-punc">,</span>
+  <span class="tok-key">"ativo"</span><span class="tok-punc">:</span> <span class="tok-punc">{</span> <span class="tok-com">/* mesmo shape de ativo da watchlist */</span> <span class="tok-punc">}</span><span class="tok-punc">,</span>
+  <span class="tok-key">"tipo_condicao"</span><span class="tok-punc">:</span> <span class="tok-str">"PRECO_MAIOR_IGUAL"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"valor_alvo"</span><span class="tok-punc">:</span> <span class="tok-str">"40.00"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"moeda_alvo"</span><span class="tok-punc">:</span> <span class="tok-str">"BRL"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"habilitado"</span><span class="tok-punc">:</span> <span class="tok-bool">true</span><span class="tok-punc">,</span>
+  <span class="tok-key">"ultimo_estado"</span><span class="tok-punc">:</span> <span class="tok-bool">false</span><span class="tok-punc">,</span>
+  <span class="tok-key">"disparado_em"</span><span class="tok-punc">:</span> <span class="tok-bool">null</span><span class="tok-punc">,</span>
+  <span class="tok-key">"criado_em"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-09-15T13:00:00Z"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"atualizado_em"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-09-15T13:00:00Z"</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+          </div>
+          <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
+            <code>valor_alvo</code> aceita número ou string no request; na resposta vem sempre string.
+          </p>
+          <div class="subhead">Validação</div>
+          <table class="params">
+            <tr><th>Campo</th><th>Regra</th></tr>
+            <tr><td class="pname">ticker</td><td>1–20 caracteres</td></tr>
+            <tr><td class="pname">tipo_condicao</td><td>ver <a href="#enums">TipoCondicaoAlerta</a></td></tr>
+            <tr><td class="pname">valor_alvo</td><td>decimal &gt; 0</td></tr>
+          </table>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Ativo nao encontrado"</td></tr>
+            <tr><td class="status s5">503</td><td>"Fonte de dados de mercado indisponivel"</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-al-list">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/alertas</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Lista os alertas do usuário, habilitados e desabilitados.</p>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-al-patch">
+        <div class="endpoint-head">
+          <span class="method patch">PATCH</span>
+          <span class="endpoint-path">/api/v1/alertas/<span class="param">{alerta_id}</span></span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Atualização parcial — mande só o que quer mudar. No request o campo <code>ativo</code> liga/desliga o
+            alerta; na resposta isso aparece como <code>habilitado</code>.
+          </p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"valor_alvo"</span><span class="tok-punc">:</span> <span class="tok-str">"42.50"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"ativo"</span><span class="tok-punc">:</span> <span class="tok-bool">false</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+            <div>
+              <div class="subhead">200 OK</div>
+              <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin:0;">Mesmo shape do POST.</p>
+            </div>
+          </div>
+          <div class="subhead">Campos aceitos</div>
+          <table class="params">
+            <tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr>
+            <tr><td class="pname">tipo_condicao</td><td class="ptype">enum?</td><td>troca a condição de disparo</td></tr>
+            <tr><td class="pname">valor_alvo</td><td class="ptype">decimal? &gt; 0</td><td>novo preço-alvo</td></tr>
+            <tr><td class="pname">ativo</td><td class="ptype">bool?</td><td>habilita/desabilita o alerta</td></tr>
+          </table>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Alerta nao encontrado"</td></tr>
+            <tr><td class="status s4">422</td><td>regra de negócio (ex: nenhum campo enviado)</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-al-del">
+        <div class="endpoint-head">
+          <span class="method delete">DELETE</span>
+          <span class="endpoint-path">/api/v1/alertas/<span class="param">{alerta_id}</span></span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Remove um alerta definitivamente.</p>
+          <div class="subhead">204 No Content</div>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Alerta nao encontrado"</td></tr>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section id="portfolio-section">
+      <div class="section-head">
+        <span class="section-num">§7</span>
+        <h2 class="section-title">Portfólio</h2>
+      </div>
+      <p class="section-desc">
+        Carteira montada a partir das operações de compra e venda registradas pelo usuário. Posições, preço médio e
+        lucro são recalculados a partir das operações. Todas as rotas exigem <b>🔒 autenticado</b>.
+      </p>
+
+      <div class="callout warn">
+        <div class="callout-title">Percentuais do portfólio são frações</div>
+        <p>
+          Em <code>/portfolio/rentabilidade</code>, <code>/portfolio/benchmark</code> e <code>/portfolio/distribuicao</code>
+          os percentuais vêm como <b>fração</b>: <code>"0.1234"</code> = 12,34%. Multipliquem por 100 para exibir.
+          (Diferente de <code>/cotacao</code> e do backtest, que já vêm em pontos percentuais.)
+        </p>
+      </div>
+
+      <article class="endpoint" id="ep-op-add">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/v1/operacoes</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Registra uma compra ou venda. O ativo precisa existir (use o <code>id</code> vindo da watchlist).</p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"ativo_id"</span><span class="tok-punc">:</span> <span class="tok-str">"3fa8..."</span><span class="tok-punc">,</span>
+  <span class="tok-key">"tipo"</span><span class="tok-punc">:</span> <span class="tok-str">"COMPRA"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"quantidade"</span><span class="tok-punc">:</span> <span class="tok-str">"100"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"preco_unitario"</span><span class="tok-punc">:</span> <span class="tok-str">"37.50"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"data"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-09-01"</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+            <div>
+              <div class="subhead">201 Created</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"id"</span><span class="tok-punc">:</span> <span class="tok-str">"5d0e..."</span><span class="tok-punc">,</span>
+  <span class="tok-key">"ativo_id"</span><span class="tok-punc">:</span> <span class="tok-str">"3fa8..."</span><span class="tok-punc">,</span>
+  <span class="tok-key">"tipo"</span><span class="tok-punc">:</span> <span class="tok-str">"COMPRA"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"quantidade"</span><span class="tok-punc">:</span> <span class="tok-str">"100"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"preco_unitario"</span><span class="tok-punc">:</span> <span class="tok-str">"37.50"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"data"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-09-01"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"criado_em"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-09-15T13:00:00Z"</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+          </div>
+          <div class="subhead">Validação</div>
+          <table class="params">
+            <tr><th>Campo</th><th>Regra</th></tr>
+            <tr><td class="pname">tipo</td><td>ver <a href="#enums">TipoOperacao</a></td></tr>
+            <tr><td class="pname">quantidade</td><td>decimal &gt; 0 (cripto aceita fração)</td></tr>
+            <tr><td class="pname">preco_unitario</td><td>decimal &gt; 0, na moeda do ativo</td></tr>
+            <tr><td class="pname">data</td><td><code>YYYY-MM-DD</code>, não pode ser futura</td></tr>
+          </table>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Ativo nao encontrado"</td></tr>
+            <tr><td class="status s4">422</td><td>"data nao pode ser futura", ou venda maior que a quantidade em carteira (hoje o <code>detail</code> desse caso traz só o id do ativo)</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-op-list">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/operacoes</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Lista as operações do usuário. Mesmo shape do POST, em array.</p>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-op-del">
+        <div class="endpoint-head">
+          <span class="method delete">DELETE</span>
+          <span class="endpoint-path">/api/v1/operacoes/<span class="param">{operacao_id}</span></span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Remove uma operação. Recusada se deixar a carteira com quantidade negativa (ex: apagar a compra de algo já vendido).</p>
+          <div class="subhead">204 No Content</div>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Operacao nao encontrada"</td></tr>
+            <tr><td class="status s4">422</td><td>remoção deixaria quantidade negativa (<code>detail</code> = id do ativo)</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-pf-posicoes">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/portfolio/posicoes</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Posição atual por ativo. Valores na moeda do ativo, exceto <code>valor_mercado_brl</code> (convertido pelo câmbio).
+          </p>
+          <div class="subhead">200 OK</div>
+          <pre><code><span class="tok-punc">[</span>
+  <span class="tok-punc">{</span>
+    <span class="tok-key">"ativo_id"</span><span class="tok-punc">:</span> <span class="tok-str">"3fa8..."</span><span class="tok-punc">,</span>
+    <span class="tok-key">"ticker"</span><span class="tok-punc">:</span> <span class="tok-str">"PETR4"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"quantidade"</span><span class="tok-punc">:</span> <span class="tok-str">"100"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"preco_medio"</span><span class="tok-punc">:</span> <span class="tok-str">"37.50"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"cotacao_atual"</span><span class="tok-punc">:</span> <span class="tok-str">"38.42"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"valor_mercado"</span><span class="tok-punc">:</span> <span class="tok-str">"3842.00"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"valor_mercado_brl"</span><span class="tok-punc">:</span> <span class="tok-str">"3842.00"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"lucro_nao_realizado"</span><span class="tok-punc">:</span> <span class="tok-str">"92.00"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"lucro_realizado"</span><span class="tok-punc">:</span> <span class="tok-str">"0"</span>
+  <span class="tok-punc">}</span>
+<span class="tok-punc">]</span></code></pre>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-pf-rent">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/portfolio/rentabilidade</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Consolidado da carteira em BRL. Carteira vazia devolve tudo zerado.</p>
+          <div class="subhead">200 OK</div>
+          <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"custo_base_brl"</span><span class="tok-punc">:</span> <span class="tok-str">"3750.00"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"valor_mercado_brl"</span><span class="tok-punc">:</span> <span class="tok-str">"3842.00"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"lucro_nao_realizado_brl"</span><span class="tok-punc">:</span> <span class="tok-str">"92.00"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"lucro_realizado_brl"</span><span class="tok-punc">:</span> <span class="tok-str">"0"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"percentual"</span><span class="tok-punc">:</span> <span class="tok-str">"0.02453"</span>
+<span class="tok-punc">}</span></code></pre>
+          <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
+            <code>percentual</code> = lucro não realizado ÷ custo base, em fração.
+          </p>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-pf-bench">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/portfolio/benchmark<span class="param">?benchmark=</span></span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Compara a rentabilidade da carteira com CDI ou Ibovespa desde a data da primeira operação.</p>
+          <table class="params">
+            <tr><th>Param</th><th>Tipo</th><th>Descrição</th></tr>
+            <tr><td class="pname">benchmark</td><td class="ptype">enum (query, obrigatório)</td><td>ver <a href="#enums">TipoBenchmark</a></td></tr>
+          </table>
+          <div class="subhead">200 OK</div>
+          <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"benchmark"</span><span class="tok-punc">:</span> <span class="tok-str">"CDI"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"rentabilidade_carteira_percentual"</span><span class="tok-punc">:</span> <span class="tok-str">"0.02453"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"rentabilidade_benchmark_percentual"</span><span class="tok-punc">:</span> <span class="tok-str">"0.00871"</span>
+<span class="tok-punc">}</span></code></pre>
+          <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
+            Frações. <code>rentabilidade_benchmark_percentual</code> vem <code>null</code> quando a fonte do benchmark
+            está fora do ar ou não há dados cobrindo a data inicial — exibam "indisponível", não 0%.
+          </p>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Nenhuma operacao registrada"</td></tr>
+            <tr><td class="status s4">422</td><td><code>benchmark</code> ausente ou fora do enum</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-pf-dist">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/portfolio/distribuicao</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Peso de cada fatia no valor de mercado em BRL. Cada mapa soma 1. Setor desconhecido aparece como <code>"N/A"</code>.
+            Carteira vazia devolve mapas vazios.
+          </p>
+          <div class="subhead">200 OK</div>
+          <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"por_classe"</span><span class="tok-punc">:</span> <span class="tok-punc">{</span> <span class="tok-key">"ACAO"</span><span class="tok-punc">:</span> <span class="tok-str">"0.7"</span><span class="tok-punc">,</span> <span class="tok-key">"CRIPTO"</span><span class="tok-punc">:</span> <span class="tok-str">"0.3"</span> <span class="tok-punc">}</span><span class="tok-punc">,</span>
+  <span class="tok-key">"por_setor"</span><span class="tok-punc">:</span> <span class="tok-punc">{</span> <span class="tok-key">"Petróleo, Gás e Biocombustíveis"</span><span class="tok-punc">:</span> <span class="tok-str">"0.7"</span><span class="tok-punc">,</span> <span class="tok-key">"N/A"</span><span class="tok-punc">:</span> <span class="tok-str">"0.3"</span> <span class="tok-punc">}</span><span class="tok-punc">,</span>
+  <span class="tok-key">"por_moeda"</span><span class="tok-punc">:</span> <span class="tok-punc">{</span> <span class="tok-key">"BRL"</span><span class="tok-punc">:</span> <span class="tok-str">"1"</span> <span class="tok-punc">}</span>
+<span class="tok-punc">}</span></code></pre>
+        </div>
+      </article>
+    </section>
+
+    <section id="ia-section">
+      <div class="section-head">
+        <span class="section-num">§8</span>
+        <h2 class="section-title">Análise por IA</h2>
+      </div>
+      <p class="section-desc">
+        Texto gerado por LLM a partir de cotação, indicadores e sinais. Ambas as rotas exigem
+        <b>🔒 autenticado</b> e devolvem <code>aviso_legal</code> — exibam esse texto
+        junto da resposta. A IA pode estar <b>desligada</b> no ambiente: nesse caso as rotas respondem
+        503 "Provedor de IA indisponivel" e o client deve esconder/desabilitar a funcionalidade.
+      </p>
+
+      <article class="endpoint" id="ep-analise">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/ativos/<span class="param">{ativo_id}</span>/analise</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Análise do ativo. Se os dados do ativo não mudaram desde a última análise, devolve a mesma (rápido,
+            <code>em_cache: true</code>). Se mudaram, gera uma nova — pode levar vários segundos; mostrem loading.
+          </p>
+          <div class="subhead">200 OK</div>
+          <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"ativo_id"</span><span class="tok-punc">:</span> <span class="tok-str">"3fa8..."</span><span class="tok-punc">,</span>
+  <span class="tok-key">"texto"</span><span class="tok-punc">:</span> <span class="tok-str">"PETR4 fechou em alta de 1,5%..."</span><span class="tok-punc">,</span>
+  <span class="tok-key">"gerado_em"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-09-15T13:00:00Z"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"modelo"</span><span class="tok-punc">:</span> <span class="tok-str">"gemini-2.5-flash"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"em_cache"</span><span class="tok-punc">:</span> <span class="tok-bool">false</span><span class="tok-punc">,</span>
+  <span class="tok-key">"desatualizada"</span><span class="tok-punc">:</span> <span class="tok-bool">false</span><span class="tok-punc">,</span>
+  <span class="tok-key">"aviso_legal"</span><span class="tok-punc">:</span> <span class="tok-str">"Análise gerada por IA. Não constitui recomendação de investimento."</span>
+<span class="tok-punc">}</span></code></pre>
+          <div class="subhead">Campos de estado</div>
+          <table class="params">
+            <tr><th>Campo</th><th>Significado</th></tr>
+            <tr><td class="pname">em_cache</td><td><code>true</code> quando é uma análise já salva (não foi gerada agora).</td></tr>
+            <tr><td class="pname">desatualizada</td><td><code>true</code> quando o provedor de IA falhou e o backend devolveu a <b>última análise disponível</b>, que não reflete os dados mais recentes. Mostrem um aviso tipo "análise de &lt;gerado_em&gt;, pode estar desatualizada". Sempre vem com <code>em_cache: true</code>.</td></tr>
+          </table>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Ativo nao encontrado"</td></tr>
+            <tr><td class="status s4">422</td><td>"Dados insuficientes para gerar a analise" — ativo sem histórico/indicadores ainda</td></tr>
+            <tr><td class="status s5">502</td><td>"Resposta da IA bloqueada pelo guardrail"</td></tr>
+            <tr><td class="status s5">503</td><td>"Provedor de IA indisponivel" (inclui IA desligada) ou "Cota do provedor de IA excedida" (pode ter <code>Retry-After</code>, em segundos). Só ocorre se não houver análise anterior para devolver como <code>desatualizada</code>.</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-chat">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/v1/chat</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Chat sobre a carteira do usuário (a IA consulta posições, rentabilidade, distribuição, operações e benchmark).
+            O backend não guarda conversa: o client manda o histórico inteiro a cada chamada, terminando com a
+            mensagem do usuário, e acrescenta a resposta como <code>"assistente"</code> antes da próxima.
+          </p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"mensagens"</span><span class="tok-punc">:</span> <span class="tok-punc">[</span>
+    <span class="tok-punc">{</span> <span class="tok-key">"papel"</span><span class="tok-punc">:</span> <span class="tok-str">"usuario"</span><span class="tok-punc">,</span> <span class="tok-key">"texto"</span><span class="tok-punc">:</span> <span class="tok-str">"Como está minha carteira?"</span> <span class="tok-punc">}</span><span class="tok-punc">,</span>
+    <span class="tok-punc">{</span> <span class="tok-key">"papel"</span><span class="tok-punc">:</span> <span class="tok-str">"assistente"</span><span class="tok-punc">,</span> <span class="tok-key">"texto"</span><span class="tok-punc">:</span> <span class="tok-str">"Sua carteira rende 2,4%..."</span> <span class="tok-punc">}</span><span class="tok-punc">,</span>
+    <span class="tok-punc">{</span> <span class="tok-key">"papel"</span><span class="tok-punc">:</span> <span class="tok-str">"usuario"</span><span class="tok-punc">,</span> <span class="tok-key">"texto"</span><span class="tok-punc">:</span> <span class="tok-str">"E comparado ao CDI?"</span> <span class="tok-punc">}</span>
+  <span class="tok-punc">]</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+            <div>
+              <div class="subhead">200 OK</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"texto"</span><span class="tok-punc">:</span> <span class="tok-str">"O CDI rendeu 0,9%..."</span><span class="tok-punc">,</span>
+  <span class="tok-key">"modelo"</span><span class="tok-punc">:</span> <span class="tok-str">"gemini-2.5-flash"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"aviso_legal"</span><span class="tok-punc">:</span> <span class="tok-str">"Análise gerada por IA..."</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+          </div>
+          <div class="subhead">Validação</div>
+          <table class="params">
+            <tr><th>Regra</th><th>Erro 422</th></tr>
+            <tr><td>pelo menos 1 mensagem</td><td>"Envie ao menos uma mensagem"</td></tr>
+            <tr><td>no máximo 20 mensagens</td><td>"Limite de 20 mensagens excedido" — descartem as mais antigas</td></tr>
+            <tr><td>última mensagem com <code>papel: "usuario"</code></td><td>"A ultima mensagem deve ser do usuario"</td></tr>
+            <tr><td>texto não vazio, até 2000 caracteres</td><td>"Mensagem vazia" / "Mensagem excede 2000 caracteres"</td></tr>
+          </table>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s5">502</td><td>"Resposta da IA bloqueada pelo guardrail"</td></tr>
+            <tr><td class="status s5">503</td><td>"Provedor de IA indisponivel" ou "Cota do provedor de IA excedida" (<code>Retry-After</code>)</td></tr>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section id="notificacoes-section">
+      <div class="section-head">
+        <span class="section-num">§9</span>
+        <h2 class="section-title">Notificações</h2>
+      </div>
+      <p class="section-desc">
+        Notificações ficam salvas no backend (caixa de entrada) e, se o usuário estiver conectado, também chegam na
+        hora pelo WebSocket. Tipos: sinal técnico ativado em ativo da watchlist, alerta de preço disparado e
+        resumo diário da carteira por IA (ver <a href="#enums">TipoNotificacao</a>).
+      </p>
+
+      <div class="subhead">Notificacao</div>
+      <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"id"</span><span class="tok-punc">:</span> <span class="tok-str">"e41b..."</span><span class="tok-punc">,</span>
+  <span class="tok-key">"ativo_id"</span><span class="tok-punc">:</span> <span class="tok-str">"3fa8..."</span><span class="tok-punc">,</span>
+  <span class="tok-key">"tipo"</span><span class="tok-punc">:</span> <span class="tok-str">"ALERTA_DISPARADO"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"mensagem"</span><span class="tok-punc">:</span> <span class="tok-str">"PETR4 atingiu o alvo de 40.00 BRL (preco maior ou igual)"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"contexto"</span><span class="tok-punc">:</span> <span class="tok-punc">{</span> <span class="tok-key">"alerta_id"</span><span class="tok-punc">:</span> <span class="tok-str">"9b2c..."</span><span class="tok-punc">,</span> <span class="tok-key">"preco"</span><span class="tok-punc">:</span> <span class="tok-str">"40.12"</span> <span class="tok-punc">}</span><span class="tok-punc">,</span>
+  <span class="tok-key">"lida"</span><span class="tok-punc">:</span> <span class="tok-bool">false</span><span class="tok-punc">,</span>
+  <span class="tok-key">"criado_em"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-09-15T13:00:00Z"</span>
+<span class="tok-punc">}</span></code></pre>
+      <div class="subhead">contexto por tipo</div>
+      <table class="params">
+        <tr><th>tipo</th><th>ativo_id</th><th>contexto</th></tr>
+        <tr><td class="pname">SINAL_ATIVADO</td><td>preenchido</td><td><code>{ "sinal_id", "regra_id" }</code></td></tr>
+        <tr><td class="pname">ALERTA_DISPARADO</td><td>preenchido</td><td><code>{ "alerta_id", "preco" }</code></td></tr>
+        <tr><td class="pname">RESUMO_DIARIO</td><td><code>null</code></td><td><code>{ "texto", "aviso_legal", "modelo", "prompt_versao", "contexto_hash" }</code> — o resumo completo está em <code>contexto.texto</code>; <code>mensagem</code> é só o título.</td></tr>
+      </table>
+
+      <article class="endpoint" id="ep-nt-list">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/notificacoes<span class="param">?apenas_nao_lidas=</span></span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Lista as notificações do usuário (array de <code>Notificacao</code>).</p>
+          <table class="params">
+            <tr><th>Param</th><th>Tipo</th><th>Descrição</th></tr>
+            <tr><td class="pname">apenas_nao_lidas</td><td class="ptype">bool (query)</td><td>default <code>false</code></td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-nt-lida">
+        <div class="endpoint-head">
+          <span class="method patch">PATCH</span>
+          <span class="endpoint-path">/api/v1/notificacoes/<span class="param">{notificacao_id}</span>/lida</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Marca como lida. Sem body. Devolve a <code>Notificacao</code> atualizada.</p>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Notificacao nao encontrada"</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-nt-ws">
+        <div class="endpoint-head">
+          <span class="method ws">WS</span>
+          <span class="endpoint-path">/api/v1/notificacoes/ws</span>
+          <span class="auth-flag locked">🔒 via mensagem</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Canal em tempo real. Use <code>ws://</code> em dev e <code>wss://</code> em produção. O token
+            <b>não</b> vai na URL nem em header: a primeira mensagem depois de conectar é a autenticação.
+            Todas as mensagens são JSON em texto com um campo <code>tipo</code>.
+          </p>
+
+          <div class="subhead">Mensagens</div>
+          <table class="params">
+            <tr><th>Direção</th><th>tipo</th><th>Payload</th></tr>
+            <tr><td>client → server</td><td class="pname">autenticar</td><td><code>{ "tipo": "autenticar", "token": "&lt;access_token&gt;" }</code></td></tr>
+            <tr><td>server → client</td><td class="pname">autenticado</td><td><code>{ "tipo": "autenticado" }</code> — confirmação</td></tr>
+            <tr><td>server → client</td><td class="pname">notificacao</td><td><code>{ "tipo": "notificacao", "notificacao": Notificacao }</code></td></tr>
+            <tr><td>server → client</td><td class="pname">ping</td><td><code>{ "tipo": "ping" }</code> a cada 30 s — não precisa responder; serve para detectar conexão morta</td></tr>
+          </table>
+
+          <div class="subhead">Fluxo</div>
+          <ol style="color:var(--ink-muted); font-size:14px; line-height:1.6;">
+            <li>Conectar e, em até <b>10 s</b>, enviar <code>autenticar</code> com o access token.</li>
+            <li>Esperar <code>autenticado</code>. A partir daí chegam <code>notificacao</code> e <code>ping</code>.</li>
+            <li><b>Antes do access token expirar</b>, renovar via <code>/auth/refresh</code> e mandar <code>autenticar</code> de novo <b>na mesma conexão</b> com o token novo (do mesmo usuário). O server responde <code>autenticado</code> e estende a sessão. Se não fizer isso, o server fecha com 4401 quando o token expira.</li>
+            <li>Ao receber uma <code>notificacao</code>, inserir na lista local / mostrar toast. Não é preciso confirmar recebimento.</li>
+          </ol>
+
+          <div class="subhead">Códigos de fechamento</div>
+          <table class="errors">
+            <tr><th>Código</th><th>Motivo</th><th>O que o client faz</th></tr>
+            <tr><td class="status s2">4401</td><td>Não autenticou em 10 s, token inválido/expirado, re-autenticação com token de outro usuário, ou access token expirou sem renovação</td><td>Renovar o access token (refresh) e reconectar. Se o refresh falhar, ir para o login.</td></tr>
+            <tr><td class="status s5">1011</td><td>Erro interno no servidor</td><td>Reconectar com backoff.</td></tr>
+            <tr><td class="status">outros</td><td>Queda de rede, deploy, proxy</td><td>Reconectar com backoff exponencial (ex: 1 s, 2 s, 4 s… até 30 s).</td></tr>
+          </table>
+
+          <div class="callout warn">
+            <div class="callout-title">Ao reconectar, sincronize pelo REST</div>
+            <p>
+              O WebSocket não reenvia o que chegou enquanto o client estava desconectado. Depois de cada
+              (re)conexão autenticada, chamem <code>GET /api/v1/notificacoes?apenas_nao_lidas=true</code> e mesclem
+              com o que já está na tela (deduplicando por <code>id</code>). Façam o mesmo quando o app volta do background.
+            </p>
+          </div>
+
+          <div class="subhead">Exemplo (JS)</div>
+          <pre><code>const ws = new WebSocket("wss://api.exemplo.com/api/v1/notificacoes/ws");
+ws.onopen = () =&gt; ws.send(JSON.stringify({ tipo: "autenticar", token: accessToken }));
+ws.onmessage = (ev) =&gt; {
+  const msg = JSON.parse(ev.data);
+  if (msg.tipo === "autenticado") sincronizarNaoLidas();
+  if (msg.tipo === "notificacao") adicionarNotificacao(msg.notificacao);
+};
+ws.onclose = (ev) =&gt; {
+  if (ev.code === 4401) renovarTokenEReconectar();
+  else reconectarComBackoff();
+};</code></pre>
+        </div>
+      </article>
+    </section>
+
+    <section id="enums">
+      <div class="section-head">
+        <span class="section-num">§10</span>
+        <h2 class="section-title">Enums</h2>
+      </div>
+      <p class="section-desc">Valores literais usados em requests e responses — batem exatamente com essas strings.</p>
+
+      <div class="enum-block">
+        <div class="enum-name">TipoAtivo</div>
+        <div class="chip-row">
+          <span class="chip">ACAO</span><span class="chip">FII</span><span class="chip">ETF</span>
+          <span class="chip">BDR</span><span class="chip">CRIPTO</span><span class="chip">INDICE</span>
+        </div>
+        <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:6px;"><code>INDICE</code> é interno (Ibovespa, usado no benchmark) e não aparece em busca nem watchlist, mas tratem como valor válido.</p>
+      </div>
+      <div class="enum-block">
+        <div class="enum-name">PeriodoHistorico</div>
+        <div class="chip-row">
+          <span class="chip">1D</span><span class="chip">1S</span><span class="chip">1M</span>
+          <span class="chip">3M</span><span class="chip">1A</span><span class="chip">5A</span>
+        </div>
+      </div>
+      <div class="enum-block">
+        <div class="enum-name">TipoCondicaoAlerta</div>
+        <div class="chip-row">
+          <span class="chip">PRECO_MAIOR_IGUAL</span><span class="chip">PRECO_MENOR_IGUAL</span>
+        </div>
+      </div>
+      <div class="enum-block">
+        <div class="enum-name">TipoIndicador</div>
+        <div class="chip-row">
+          <span class="chip">SMA</span><span class="chip">RSI</span><span class="chip">MACD</span>
+          <span class="chip">BOLLINGER</span><span class="chip">VOLUME_RELATIVO</span>
+        </div>
+      </div>
+      <div class="enum-block">
+        <div class="enum-name">TipoOperacao</div>
+        <div class="chip-row">
+          <span class="chip">COMPRA</span><span class="chip">VENDA</span>
+        </div>
+      </div>
+      <div class="enum-block">
+        <div class="enum-name">TipoBenchmark</div>
+        <div class="chip-row">
+          <span class="chip">CDI</span><span class="chip">IBOVESPA</span>
+        </div>
+      </div>
+      <div class="enum-block">
+        <div class="enum-name">TipoNotificacao</div>
+        <div class="chip-row">
+          <span class="chip">SINAL_ATIVADO</span><span class="chip">ALERTA_DISPARADO</span><span class="chip">RESUMO_DIARIO</span>
+        </div>
+      </div>
+      <div class="enum-block">
+        <div class="enum-name">Papel da mensagem de chat</div>
+        <div class="chip-row">
+          <span class="chip">usuario</span><span class="chip">assistente</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="regras">
+      <div class="section-head">
+        <span class="section-num">§11</span>
+        <h2 class="section-title">Regras de sinal padrão</h2>
+      </div>
+      <p class="section-desc">
+        Conjunto fixo hoje (ainda não configurável pelo usuário) — os <code>regra_id</code> retornados
+        por <code>/sinais</code> e usados no backtest são sempre um destes três UUIDs.
+      </p>
+      <div class="endpoint" style="padding: 4px 18px;">
+        <div class="rule-card">
+          <div class="rule-weight">peso 1.0</div>
+          <div>
+            <div class="rule-name">Sobrevenda RSI</div>
+            <div class="rule-desc">RSI(14) abaixo de 30 — condição técnica de sobrevenda.</div>
+            <div class="rule-id">a1a1a1a1-0000-0000-0000-000000000001</div>
+          </div>
+        </div>
+        <div class="rule-card">
+          <div class="rule-weight">peso 1.0</div>
+          <div>
+            <div class="rule-name">Sobrecompra RSI</div>
+            <div class="rule-desc">RSI(14) acima de 70 — condição técnica de sobrecompra.</div>
+            <div class="rule-id">a1a1a1a1-0000-0000-0000-000000000002</div>
+          </div>
+        </div>
+        <div class="rule-card">
+          <div class="rule-weight">peso 0.5</div>
+          <div>
+            <div class="rule-name">Pico de Volume</div>
+            <div class="rule-desc">Volume relativo(20) acima de 1.5x a média — atividade de negociação incomum.</div>
+            <div class="rule-id">a1a1a1a1-0000-0000-0000-000000000003</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="ambiente">
+      <div class="section-head">
+        <span class="section-num">§12</span>
+        <h2 class="section-title">Rodando local</h2>
+      </div>
+      <p class="section-desc">Para apontar o app/web para o backend local:</p>
+      <pre><code># na raiz do insight-flow-backend
+docker compose up
+
+# sobe API em http://localhost:8000, Postgres e Redis
+# migrations do Alembic aplicadas automaticamente
+# docs interativas (Swagger) em http://localhost:8000/docs</code></pre>
+      <p>
+        Sem <code>BRAPI_API_KEY</code>, cotação e histórico de renda variável só respondem para
+        <code>PETR4</code>, <code>MGLU3</code>, <code>VALE3</code>, <code>ITUB4</code>. Cripto (Binance) funciona sem chave.
+        A IA fica desligada por padrão (<code>AI_HABILITADA=false</code>) — as rotas de IA respondem 503 até alguém
+        configurar <code>GEMINI_API_KEY</code>. Para testar o web local, a origem precisa estar em <code>CORS_ORIGENS</code>.
+      </p>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  InsightFlow AI — documentação gerada a partir do estado atual do backend (branch <code>develop</code>, 07/10/2026).
+  Sujeita a mudar conforme o serviço evolui — mudanças incompatíveis serão avisadas aos times dos clientes.
+</footer>
