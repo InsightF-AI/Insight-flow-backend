@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -8,6 +10,12 @@ import httpx
 from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.integrations.brapi.client import CotacaoAtual, PontoHistorico
 from app.integrations.erros import FonteDadosIndisponivelError, TickerNaoEncontradoError
+from app.integrations.limitador import LimitadorTaxa, LimiteTaxaExcedidoError
+from app.integrations.retentativa import (
+    POLITICA_PADRAO,
+    PoliticaRetentativa,
+    executar_com_retentativa,
+)
 
 _MOEDA_COTACAO = "BRL"
 _CODIGO_SIMBOLO_INVALIDO = -1121
@@ -27,8 +35,17 @@ class BinanceIndisponivelError(FonteDadosIndisponivelError):
 
 
 class BinanceClient:
-    def __init__(self, http_client: httpx.Client):
+    def __init__(
+        self,
+        http_client: httpx.Client,
+        limitador: LimitadorTaxa | None = None,
+        politica: PoliticaRetentativa = POLITICA_PADRAO,
+        dormir: Callable[[float], None] = time.sleep,
+    ):
         self._http_client = http_client
+        self._limitador = limitador
+        self._politica = politica
+        self._dormir = dormir
 
     def listar_pares_brl(self) -> list[str]:
         dados = self._get("/api/v3/exchangeInfo", {})
@@ -73,9 +90,18 @@ class BinanceClient:
         ]
 
     def _get(self, caminho: str, params: dict[str, str]):
+        def requisitar() -> httpx.Response:
+            if self._limitador is not None:
+                self._limitador.adquirir()
+            return self._http_client.get(caminho, params=params)
+
         try:
-            resposta = self._http_client.get(caminho, params=params)
+            resposta = executar_com_retentativa(
+                requisitar, self._politica, f"binance {caminho}", self._dormir
+            )
             resposta.raise_for_status()
+        except LimiteTaxaExcedidoError as exc:
+            raise BinanceIndisponivelError from exc
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 400 and (
                 _codigo_erro(exc.response) == _CODIGO_SIMBOLO_INVALIDO

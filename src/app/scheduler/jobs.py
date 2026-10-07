@@ -15,6 +15,7 @@ from app.domain.enums.tipo_ativo import TipoAtivo
 from app.integrations.bcb.client import BcbClient
 from app.integrations.binance.client import BinanceClient
 from app.integrations.brapi.client import BrapiClient
+from app.integrations.limitadores import limitador_compartilhado
 from app.notifications.canal import CanalTempoReal
 from app.notifications.redis_barramento import RedisBarramentoNotificacoes
 from app.repositories.interfaces.notificacao_repository import NotificacaoRepository
@@ -125,11 +126,25 @@ def _dados_mercado_service(settings: Settings, cache: MercadoCache) -> DadosMerc
     brapi_client = BrapiClient(
         _brapi_http_client(settings.brapi_base_url),
         settings.brapi_api_key or None,
+        limitador=limitador_compartilhado(
+            "brapi",
+            settings.brapi_requisicoes_por_minuto,
+            settings.integracoes_espera_maxima_segundos,
+        ),
+        politica=settings.politica_retentativa(),
     )
     return CachedDadosMercadoService(
         RoteadorDadosMercadoService(
             DadosMercadoService(brapi_client),
-            BinanceClient(_binance_http_client(settings.binance_base_url)),
+            BinanceClient(
+                _binance_http_client(settings.binance_base_url),
+                limitador=limitador_compartilhado(
+                    "binance",
+                    settings.binance_requisicoes_por_minuto,
+                    settings.integracoes_espera_maxima_segundos,
+                ),
+                politica=settings.politica_retentativa(),
+            ),
             cache,
             ttl_catalogo_segundos=settings.cache_ttl_catalogo_cripto_segundos,
         ),

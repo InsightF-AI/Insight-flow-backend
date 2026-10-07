@@ -7,11 +7,30 @@ import pytest
 from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.integrations.binance.client import BinanceClient, BinanceIndisponivelError
 from app.integrations.erros import TickerNaoEncontradoError
+from app.integrations.limitador import LimitadorTaxa, LimiteTaxaExcedidoError
+from app.integrations.retentativa import PoliticaRetentativa
 
 
-def _client(handler) -> BinanceClient:
+def _client(handler, limitador: LimitadorTaxa | None = None) -> BinanceClient:
     transporte = httpx.MockTransport(handler)
-    return BinanceClient(httpx.Client(base_url="https://api.binance.com", transport=transporte))
+    return BinanceClient(
+        httpx.Client(base_url="https://api.binance.com", transport=transporte),
+        limitador=limitador,
+        politica=PoliticaRetentativa(tentativas=3),
+        dormir=lambda _: None,
+    )
+
+
+class _LimitadorContador(LimitadorTaxa):
+    def __init__(self, recusar: bool = False):
+        super().__init__(requisicoes_por_minuto=60, espera_maxima_segundos=0.0)
+        self.aquisicoes = 0
+        self._recusar = recusar
+
+    def adquirir(self) -> None:
+        self.aquisicoes += 1
+        if self._recusar:
+            raise LimiteTaxaExcedidoError(1.0)
 
 
 def _kline(open_time_ms: int, fechamento: str) -> list:
@@ -165,3 +184,57 @@ def test_erro_de_rede_lanca_binance_indisponivel():
 
     with pytest.raises(BinanceIndisponivelError):
         _client(handler).listar_pares_brl()
+
+
+def test_rate_limit_transitorio_e_retentado_ate_ter_sucesso():
+    respostas = iter(
+        [
+            httpx.Response(429, headers={"Retry-After": "1"}, json={"code": -1003}),
+            httpx.Response(200, json={"symbols": []}),
+        ]
+    )
+    limitador = _LimitadorContador()
+
+    pares = _client(lambda request: next(respostas), limitador).listar_pares_brl()
+
+    assert pares == []
+    assert limitador.aquisicoes == 2
+
+
+def test_simbolo_invalido_nao_e_retentado():
+    chamadas = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        chamadas.append(request)
+        return httpx.Response(400, json={"code": -1121, "msg": "Invalid symbol."})
+
+    with pytest.raises(TickerNaoEncontradoError):
+        _client(handler).buscar_cotacao_atual("NAOEXISTE")
+
+    assert len(chamadas) == 1
+
+
+def test_ip_banido_418_nao_e_retentado():
+    chamadas = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        chamadas.append(request)
+        return httpx.Response(418, headers={"Retry-After": "120"})
+
+    with pytest.raises(BinanceIndisponivelError):
+        _client(handler).listar_pares_brl()
+
+    assert len(chamadas) == 1
+
+
+def test_limitador_sem_vaga_lanca_binance_indisponivel_sem_chamar_a_api():
+    chamadas = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        chamadas.append(request)
+        return httpx.Response(200, json={"symbols": []})
+
+    with pytest.raises(BinanceIndisponivelError):
+        _client(handler, _LimitadorContador(recusar=True)).listar_pares_brl()
+
+    assert chamadas == []

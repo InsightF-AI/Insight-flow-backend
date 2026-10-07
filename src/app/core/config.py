@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.domain.value_objects.politica_historico import PoliticaHistorico
+from app.integrations.retentativa import PoliticaRetentativa
 
 
 class Settings(BaseSettings):
@@ -20,6 +21,11 @@ class Settings(BaseSettings):
     brapi_base_url: str = "https://brapi.dev"
     brapi_api_key: str = ""
     binance_base_url: str = "https://api.binance.com"
+    brapi_requisicoes_por_minuto: int = 60
+    binance_requisicoes_por_minuto: int = 600
+    integracoes_tentativas: int = 3
+    integracoes_backoff_base_segundos: float = 0.5
+    integracoes_espera_maxima_segundos: float = 10.0
 
     redis_url: str = "redis://localhost:6381/0"
     cache_ttl_cotacao_atual_segundos: int = 60
@@ -55,6 +61,13 @@ class Settings(BaseSettings):
     chat_max_mensagens: int = 20
     chat_max_caracteres_mensagem: int = 2000
     max_iteracoes_ferramentas: int = 4
+
+    def politica_retentativa(self) -> PoliticaRetentativa:
+        return PoliticaRetentativa(
+            tentativas=self.integracoes_tentativas,
+            backoff_base_segundos=self.integracoes_backoff_base_segundos,
+            espera_maxima_segundos=self.integracoes_espera_maxima_segundos,
+        )
 
     def politica_historico(self) -> PoliticaHistorico:
         return PoliticaHistorico(
