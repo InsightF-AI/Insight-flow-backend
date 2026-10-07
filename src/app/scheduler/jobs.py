@@ -30,6 +30,7 @@ from app.repositories.sqlalchemy.operacao_repository import SqlAlchemyOperacaoRe
 from app.repositories.sqlalchemy.sinal_repository import SqlAlchemySinalRepository
 from app.repositories.sqlalchemy.watchlist_repository import SqlAlchemyWatchlistRepository
 from app.scheduler.ciclo import executar_ciclo_monitoramento
+from app.scheduler.execucao import executar_job
 from app.scheduler.indices_referencia import atualizar_indices_referencia
 from app.scheduler.resumo_diario import gerar_resumos_diarios
 from app.services.alerta_service import AlertaService
@@ -53,19 +54,21 @@ _CRIPTO = {TipoAtivo.CRIPTO}
 
 def registrar_jobs(scheduler: BackgroundScheduler, settings: Settings) -> None:
     scheduler.add_job(
-        lambda: _executar_ciclo(settings, _RENDA_VARIAVEL),
+        lambda: executar_job(
+            "ciclo_renda_variavel", lambda: _executar_ciclo(settings, _RENDA_VARIAVEL)
+        ),
         "interval",
         minutes=settings.scheduler_intervalo_renda_variavel_minutos,
         id="ciclo_renda_variavel",
     )
     scheduler.add_job(
-        lambda: _executar_ciclo(settings, _CRIPTO),
+        lambda: executar_job("ciclo_cripto", lambda: _executar_ciclo(settings, _CRIPTO)),
         "interval",
         minutes=settings.scheduler_intervalo_cripto_minutos,
         id="ciclo_cripto",
     )
     scheduler.add_job(
-        lambda: _executar_indices_referencia(settings),
+        lambda: executar_job("indices_referencia", lambda: _executar_indices_referencia(settings)),
         "cron",
         hour=settings.indices_referencia_hora,
         minute=settings.indices_referencia_minuto,
@@ -74,7 +77,7 @@ def registrar_jobs(scheduler: BackgroundScheduler, settings: Settings) -> None:
     )
     if settings.ai_habilitada and settings.gemini_api_key and settings.ai_provider == "gemini":
         scheduler.add_job(
-            lambda: _executar_resumos_diarios(settings),
+            lambda: executar_job("resumo_diario", lambda: _executar_resumos_diarios(settings)),
             "cron",
             hour=settings.resumo_diario_hora,
             minute=settings.resumo_diario_minuto,

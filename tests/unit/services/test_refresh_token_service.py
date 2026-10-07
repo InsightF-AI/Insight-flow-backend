@@ -1,4 +1,5 @@
 import hashlib
+import logging
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -157,3 +158,46 @@ def test_renovacao_concorrente_que_perde_a_corrida_e_tratada_como_reuso():
         service.renovar(primeiro.refresh_token)
 
     assert all(token.esta_revogado() for token in tokens.listar_todos())
+
+
+def _registros(caplog, nome: str = "app.services.refresh_token_service"):
+    return [r for r in caplog.records if r.name == nome]
+
+
+def test_reuso_de_token_e_logado_como_aviso_com_o_usuario(caplog):
+    service, _, usuario, _ = _cenario()
+    primeiro = service.emitir(usuario.id)
+    service.renovar(primeiro.refresh_token)
+    caplog.set_level(logging.INFO)
+
+    with pytest.raises(RefreshTokenInvalidoError):
+        service.renovar(primeiro.refresh_token)
+
+    registro = _registros(caplog)[-1]
+    assert registro.levelno == logging.WARNING
+    assert registro.usuario_id == str(usuario.id)
+    assert registro.evento == "refresh_reutilizado"
+
+
+def test_refresh_invalido_e_logado_sem_dados_do_token(caplog):
+    service, _, _, _ = _cenario()
+    caplog.set_level(logging.INFO)
+
+    with pytest.raises(RefreshTokenInvalidoError):
+        service.renovar("token-que-nunca-existiu")
+
+    registro = _registros(caplog)[-1]
+    assert registro.evento == "refresh_invalido"
+    assert "token-que-nunca-existiu" not in registro.getMessage()
+
+
+def test_logout_e_logado_com_o_usuario(caplog):
+    service, _, usuario, _ = _cenario()
+    par = service.emitir(usuario.id)
+    caplog.set_level(logging.INFO)
+
+    service.revogar(par.refresh_token)
+
+    registro = _registros(caplog)[-1]
+    assert registro.evento == "logout"
+    assert registro.usuario_id == str(usuario.id)

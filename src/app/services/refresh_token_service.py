@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -19,6 +20,20 @@ class ParTokens:
     access_token: str
     refresh_token: str
     expires_in: int
+
+
+logger = logging.getLogger(__name__)
+
+
+def _logar_invalido(motivo: str, usuario_id: UUID | None = None) -> None:
+    logger.info(
+        "Refresh token recusado.",
+        extra={
+            "evento": "refresh_invalido",
+            "motivo": motivo,
+            "usuario_id": str(usuario_id) if usuario_id is not None else None,
+        },
+    )
 
 
 def _hash(token: str) -> str:
@@ -49,18 +64,21 @@ class RefreshTokenService:
         agora = self._agora()
         token = self._refresh_token_repository.buscar_por_hash(_hash(refresh_token))
         if token is None:
+            _logar_invalido("inexistente")
             raise RefreshTokenInvalidoError
         if token.esta_revogado():
-            self._refresh_token_repository.revogar_familia(token.familia_id, agora)
+            self._revogar_por_reuso(token, agora)
             raise RefreshTokenInvalidoError
         if token.esta_expirado(agora):
+            _logar_invalido("expirado", token.usuario_id)
             raise RefreshTokenInvalidoError
         usuario = self._usuario_repository.buscar_por_id(token.usuario_id)
         if usuario is None or not usuario.ativo:
+            _logar_invalido("usuario_inativo", token.usuario_id)
             raise RefreshTokenInvalidoError
 
         if not self._refresh_token_repository.revogar_se_ativo(token.id, agora):
-            self._refresh_token_repository.revogar_familia(token.familia_id, agora)
+            self._revogar_por_reuso(token, agora)
             raise RefreshTokenInvalidoError
         return self._emitir_na_familia(token.usuario_id, token.familia_id)
 
@@ -68,6 +86,17 @@ class RefreshTokenService:
         token = self._refresh_token_repository.buscar_por_hash(_hash(refresh_token))
         if token is not None:
             self._refresh_token_repository.revogar_familia(token.familia_id, self._agora())
+            logger.info(
+                "Sessao encerrada por logout.",
+                extra={"evento": "logout", "usuario_id": str(token.usuario_id)},
+            )
+
+    def _revogar_por_reuso(self, token: RefreshToken, agora: datetime) -> None:
+        self._refresh_token_repository.revogar_familia(token.familia_id, agora)
+        logger.warning(
+            "Refresh token reutilizado; sessao revogada.",
+            extra={"evento": "refresh_reutilizado", "usuario_id": str(token.usuario_id)},
+        )
 
     def _emitir_na_familia(self, usuario_id: UUID, familia_id: UUID) -> ParTokens:
         agora = self._agora()

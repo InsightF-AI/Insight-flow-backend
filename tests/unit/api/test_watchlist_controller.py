@@ -1,3 +1,5 @@
+import logging
+
 from app.domain.enums.tipo_ativo import TipoAtivo
 from app.integrations.brapi.client import AtivoEncontrado
 
@@ -113,3 +115,17 @@ def test_usuario_nao_remove_item_da_watchlist_de_outro_usuario(
 
     assert resposta.status_code == 404
     assert len(client.get("/api/v1/watchlist", headers=auth_headers).json()) == 1
+
+
+def test_requisicao_autenticada_e_logada_com_o_usuario_e_o_request_id(client, auth_headers, caplog):
+    caplog.set_level(logging.INFO)
+
+    resposta = client.get(
+        "/api/v1/watchlist", headers={**auth_headers, "X-Request-ID": "rastreio-1"}
+    )
+
+    registro = next(r for r in caplog.records if r.name == "app.api.correlacao")
+    assert resposta.headers["X-Request-ID"] == "rastreio-1"
+    assert registro.correlation_id == "rastreio-1"
+    assert registro.status == 200
+    assert registro.usuario_id is not None

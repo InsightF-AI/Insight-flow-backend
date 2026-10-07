@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     refresh_token_expiracao_dias: int = 30
 
     cors_origens: list[str] = ["http://localhost:5173"]
+    log_nivel: str = "INFO"
+    log_formato: str = "json"
 
     brapi_base_url: str = "https://brapi.dev"
     brapi_api_key: str = ""

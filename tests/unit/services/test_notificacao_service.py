@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import uuid4
@@ -285,3 +286,18 @@ def test_marcar_como_lida_nao_entrega_nos_canais():
     service.marcar_como_lida(usuario_id, resumo.id)
 
     assert registrador.entregues == []
+
+
+def test_notificacao_enviada_e_logada_com_tipo_usuario_e_ativo(caplog):
+    service = _service()
+    usuario_id = uuid4()
+    caplog.set_level(logging.INFO)
+
+    service.enviar_alerta(usuario_id, _sinal(), _ATIVO)
+
+    registro = next(
+        r for r in caplog.records if getattr(r, "evento", None) == "notificacao_enviada"
+    )
+    assert registro.tipo == "SINAL_ATIVADO"
+    assert registro.usuario_id == str(usuario_id)
+    assert registro.ativo_id == str(_ATIVO.id)

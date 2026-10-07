@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -379,3 +380,21 @@ def test_cripto_em_watchlist_no_ciclo_de_cripto_coleta_cinco_anos():
 
     assert dados_mercado_service.historicos_solicitados == [("BTC", PeriodoHistorico.CINCO_ANOS)]
     assert len(ciclo.cotacao_repository.listar_por_ativo(btc.id)) == len(_historico_rsi_baixo())
+
+
+def test_ciclo_loga_resumo_com_ativos_processados_e_com_falha(caplog):
+    ativo_ok = _ativo("PETR4")
+    ativo_sem_cotacao = _ativo("VALE3")
+    dados_mercado_service = FakeDadosMercadoService(cotacoes={"PETR4": _cotacao("PETR4", "40.00")})
+    ciclo = _construir_ciclo(dados_mercado_service)
+    ciclo.ativo_repository.salvar(ativo_ok)
+    ciclo.ativo_repository.salvar(ativo_sem_cotacao)
+    ciclo.alerta_repository.salvar(_alerta(uuid4(), ativo_ok.id))
+    ciclo.alerta_repository.salvar(_alerta(uuid4(), ativo_sem_cotacao.id))
+    caplog.set_level(logging.INFO)
+
+    _executar(ciclo, {TipoAtivo.ACAO})
+
+    registro = next(r for r in caplog.records if getattr(r, "evento", None) == "ciclo_concluido")
+    assert registro.ativos_processados == 2
+    assert registro.ativos_com_falha == 1

@@ -86,3 +86,10 @@ def test_politica_retentativa_usa_os_valores_configurados():
     assert politica.tentativas == 5
     assert politica.backoff_base_segundos == 1.5
     assert politica.espera_maxima_segundos == 20.0
+
+
+def test_logs_padrao_sao_json_em_info():
+    settings = Settings(_env_file=None)
+
+    assert settings.log_nivel == "INFO"
+    assert settings.log_formato == "json"
