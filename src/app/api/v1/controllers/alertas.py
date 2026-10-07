@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.api.deps import get_alerta_service, get_usuario_atual
 from app.api.v1.schemas.alerta import AlertaResponse, AtualizarAlertaRequest, CriarAlertaRequest
 from app.domain.entities.usuario import Usuario
-from app.integrations.brapi.client import BrapiIndisponivelError
+from app.integrations.erros import FonteDadosIndisponivelError
 from app.services.alerta_service import AlertaService
 from app.services.exceptions import AlertaNaoEncontradoError, AtivoNaoEncontradoError
 
@@ -27,7 +27,7 @@ def criar(
         )
     except AtivoNaoEncontradoError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Ativo nao encontrado") from exc
-    except BrapiIndisponivelError as exc:
+    except FonteDadosIndisponivelError as exc:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE, "Fonte de dados de mercado indisponivel"
         ) from exc

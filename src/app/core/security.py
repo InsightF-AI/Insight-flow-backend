@@ -24,3 +24,11 @@ def decodificar_token(token: str, secret_key: str) -> UUID:
         return UUID(payload["sub"])
     except (JWTError, KeyError, ValueError) as exc:
         raise TokenInvalidoError from exc
+
+
+def decodificar_token_com_expiracao(token: str, secret_key: str) -> tuple[UUID, datetime]:
+    try:
+        payload = jwt.decode(token, secret_key, algorithms=[_ALGORITHM])
+        return UUID(payload["sub"]), datetime.fromtimestamp(payload["exp"], tz=UTC)
+    except (JWTError, KeyError, ValueError, TypeError) as exc:
+        raise TokenInvalidoError from exc

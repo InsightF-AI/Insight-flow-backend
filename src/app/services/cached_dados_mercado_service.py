@@ -9,6 +9,8 @@ from app.integrations.brapi.client import AtivoEncontrado, CotacaoAtual, PontoHi
 from app.services.dados_mercado_service import DadosMercadoService
 from app.services.mercado_cache import MercadoCache
 
+_PERIODOS_RECENTES = {PeriodoHistorico.UM_DIA, PeriodoHistorico.UMA_SEMANA}
+
 
 class CachedDadosMercadoService(DadosMercadoService):
     def __init__(
@@ -16,10 +18,12 @@ class CachedDadosMercadoService(DadosMercadoService):
         interno: DadosMercadoService,
         cache: MercadoCache,
         ttl_cotacao_atual: int,
+        ttl_historico: int,
     ):
         self._interno = interno
         self._cache = cache
         self._ttl_cotacao_atual = ttl_cotacao_atual
+        self._ttl_historico = ttl_historico
 
     def buscar_ativo(self, termo: str) -> list[AtivoEncontrado]:
         return self._interno.buscar_ativo(termo)
@@ -41,8 +45,12 @@ class CachedDadosMercadoService(DadosMercadoService):
             return _historico_de_json(em_cache)
 
         pontos = self._interno.buscar_historico(ticker, periodo)
-        self._cache.salvar(chave, _historico_para_json(pontos), self._ttl_cotacao_atual)
+        ttl = self._ttl_cotacao_atual if periodo in _PERIODOS_RECENTES else self._ttl_historico
+        self._cache.salvar(chave, _historico_para_json(pontos), ttl)
         return pontos
+
+    def historico_e_diario(self, ticker: str, periodo: PeriodoHistorico) -> bool:
+        return self._interno.historico_e_diario(ticker, periodo)
 
 
 def _cotacao_atual_para_json(cotacao: CotacaoAtual) -> str:
@@ -55,6 +63,7 @@ def _cotacao_atual_para_json(cotacao: CotacaoAtual) -> str:
             "maxima_dia": str(cotacao.maxima_dia),
             "minima_dia": str(cotacao.minima_dia),
             "volume": str(cotacao.volume),
+            "abertura": str(cotacao.abertura) if cotacao.abertura is not None else None,
         }
     )
 
@@ -69,6 +78,7 @@ def _cotacao_atual_de_json(bruto: str) -> CotacaoAtual:
         maxima_dia=Decimal(dados["maxima_dia"]),
         minima_dia=Decimal(dados["minima_dia"]),
         volume=Decimal(dados["volume"]),
+        abertura=Decimal(dados["abertura"]) if dados.get("abertura") is not None else None,
     )
 
 

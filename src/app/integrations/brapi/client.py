@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -8,6 +10,13 @@ import httpx
 
 from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.domain.enums.tipo_ativo import TipoAtivo
+from app.integrations.erros import FonteDadosIndisponivelError, TickerNaoEncontradoError
+from app.integrations.limitador import LimitadorTaxa, LimiteTaxaExcedidoError
+from app.integrations.retentativa import (
+    POLITICA_PADRAO,
+    PoliticaRetentativa,
+    executar_com_retentativa,
+)
 
 _MAPA_SUBTYPE: dict[str, TipoAtivo] = {
     "stock": TipoAtivo.ACAO,
@@ -32,11 +41,7 @@ def intervalo_de(periodo: PeriodoHistorico) -> str:
     return _MAPA_PERIODO[periodo][1]
 
 
-class BrapiIndisponivelError(Exception):
-    pass
-
-
-class TickerNaoEncontradoError(Exception):
+class BrapiIndisponivelError(FonteDadosIndisponivelError):
     pass
 
 
@@ -47,6 +52,7 @@ class AtivoEncontrado:
     tipo: TipoAtivo
     moeda: str
     setor: str | None
+    fonte_dados: str = "brapi"
 
 
 @dataclass
@@ -58,6 +64,7 @@ class CotacaoAtual:
     maxima_dia: Decimal
     minima_dia: Decimal
     volume: Decimal
+    abertura: Decimal | None = None
 
 
 @dataclass
@@ -71,9 +78,19 @@ class PontoHistorico:
 
 
 class BrapiClient:
-    def __init__(self, http_client: httpx.Client, api_key: str | None = None):
+    def __init__(
+        self,
+        http_client: httpx.Client,
+        api_key: str | None = None,
+        limitador: LimitadorTaxa | None = None,
+        politica: PoliticaRetentativa = POLITICA_PADRAO,
+        dormir: Callable[[float], None] = time.sleep,
+    ):
         self._http_client = http_client
         self._api_key = api_key
+        self._limitador = limitador
+        self._politica = politica
+        self._dormir = dormir
 
     def buscar_ativos(self, termo: str) -> list[AtivoEncontrado]:
         dados = self._get("/api/v2/tickers", {"search": termo})
@@ -108,6 +125,7 @@ class BrapiClient:
             maxima_dia=Decimal(str(item["regularMarketDayHigh"])),
             minima_dia=Decimal(str(item["regularMarketDayLow"])),
             volume=Decimal(str(item["regularMarketVolume"])),
+            abertura=_decimal_ou_none(item.get("regularMarketOpen")),
         )
 
     def buscar_historico(self, ticker: str, periodo: PeriodoHistorico) -> list[PontoHistorico]:
@@ -119,7 +137,9 @@ class BrapiClient:
         resultados = dados.get("results", [])
         if not resultados:
             raise TickerNaoEncontradoError(ticker)
-        pontos = resultados[0]["data"].get("historicalDataPrice", [])
+        pontos = sorted(
+            resultados[0]["data"].get("historicalDataPrice", []), key=lambda ponto: ponto["date"]
+        )
         return [
             PontoHistorico(
                 data=datetime.fromtimestamp(ponto["date"], tz=UTC),
@@ -134,9 +154,19 @@ class BrapiClient:
 
     def _get(self, caminho: str, params: dict[str, str]) -> dict:
         headers = {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
+
+        def requisitar() -> httpx.Response:
+            if self._limitador is not None:
+                self._limitador.adquirir()
+            return self._http_client.get(caminho, params=params, headers=headers)
+
         try:
-            resposta = self._http_client.get(caminho, params=params, headers=headers)
+            resposta = executar_com_retentativa(
+                requisitar, self._politica, f"brapi {caminho}", self._dormir
+            )
             resposta.raise_for_status()
+        except LimiteTaxaExcedidoError as exc:
+            raise BrapiIndisponivelError from exc
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 raise TickerNaoEncontradoError from exc
@@ -145,3 +175,7 @@ class BrapiClient:
             raise BrapiIndisponivelError from exc
 
         return resposta.json()
+
+
+def _decimal_ou_none(valor) -> Decimal | None:
+    return Decimal(str(valor)) if valor is not None else None

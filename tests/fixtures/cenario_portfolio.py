@@ -12,6 +12,7 @@ from app.integrations.brapi.client import CotacaoAtual
 from app.services.portfolio_service import PortfolioService
 from tests.fixtures.fake_ativo_repository import FakeAtivoRepository
 from tests.fixtures.fake_cambio_service import FakeCambioService
+from tests.fixtures.fake_cotacao_repository import FakeCotacaoRepository
 from tests.fixtures.fake_dados_mercado_service import FakeDadosMercadoService
 from tests.fixtures.fake_operacao_repository import FakeOperacaoRepository
 
@@ -91,4 +92,5 @@ def montar_portfolio_service(
         FakeDadosMercadoService(cotacoes=cotacoes),
         FakeCambioService(taxa=Decimal(1)),
         _BcbClientSemDados(),
+        FakeCotacaoRepository(),
     )

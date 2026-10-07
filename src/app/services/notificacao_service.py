@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -12,6 +14,7 @@ from app.domain.enums.tipo_condicao_alerta import TipoCondicaoAlerta
 from app.domain.enums.tipo_notificacao import TipoNotificacao
 from app.domain.regras_sinal_padrao import buscar_regra_por_id
 from app.integrations.brapi.client import CotacaoAtual
+from app.notifications.canal import CanalNotificacao
 from app.repositories.interfaces.notificacao_repository import NotificacaoRepository
 from app.services.exceptions import NotificacaoNaoEncontradaError
 
@@ -23,10 +26,17 @@ _CONDICAO_TEXTO = {
 
 _TITULO_RESUMO_DIARIO = "Resumo diario da carteira"
 
+logger = logging.getLogger(__name__)
+
 
 class NotificacaoService:
-    def __init__(self, notificacao_repository: NotificacaoRepository):
+    def __init__(
+        self,
+        notificacao_repository: NotificacaoRepository,
+        canais: Sequence[CanalNotificacao] = (),
+    ):
         self._notificacao_repository = notificacao_repository
+        self._canais = list(canais)
 
     def enviar_alerta(self, usuario_id: UUID, sinal: Sinal, ativo: Ativo) -> Notificacao:
         regra = buscar_regra_por_id(sinal.regra_id)
@@ -41,6 +51,7 @@ class NotificacaoService:
             criado_em=datetime.now(UTC),
         )
         self._notificacao_repository.salvar(notificacao)
+        self._distribuir(notificacao)
         return notificacao
 
     def enviar_alerta_personalizado(
@@ -61,6 +72,7 @@ class NotificacaoService:
             criado_em=datetime.now(UTC),
         )
         self._notificacao_repository.salvar(notificacao)
+        self._distribuir(notificacao)
         return notificacao
 
     def enviar_resumo_diario(self, usuario_id: UUID, texto: str, metadados: dict) -> Notificacao:
@@ -74,6 +86,7 @@ class NotificacaoService:
             criado_em=datetime.now(UTC),
         )
         self._notificacao_repository.salvar(notificacao)
+        self._distribuir(notificacao)
         return notificacao
 
     def buscar_ultimo_resumo_diario(self, usuario_id: UUID) -> Notificacao | None:
@@ -94,3 +107,26 @@ class NotificacaoService:
         notificacao.lida = True
         self._notificacao_repository.salvar(notificacao)
         return notificacao
+
+    def _distribuir(self, notificacao: Notificacao) -> None:
+        logger.info(
+            "Notificacao %s gerada.",
+            notificacao.tipo.value,
+            extra={
+                "evento": "notificacao_enviada",
+                "notificacao_id": str(notificacao.id),
+                "tipo": notificacao.tipo.value,
+                "usuario_id": str(notificacao.usuario_id),
+                "ativo_id": str(notificacao.ativo_id) if notificacao.ativo_id else None,
+            },
+        )
+        for canal in self._canais:
+            try:
+                canal.entregar(notificacao)
+            except Exception:
+                logger.warning(
+                    "Falha ao entregar a notificacao %s pelo canal %s.",
+                    notificacao.id,
+                    type(canal).__name__,
+                    exc_info=True,
+                )

@@ -19,7 +19,13 @@ from app.domain.regras_sinal_padrao import buscar_regra_por_id
 from app.repositories.interfaces.analise_ia_repository import AnaliseIARepository
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 from app.repositories.interfaces.cotacao_repository import CotacaoRepository
-from app.services.exceptions import AtivoNaoEncontradoError, ContextoInsuficienteError
+from app.services.exceptions import (
+    AtivoNaoEncontradoError,
+    ContextoInsuficienteError,
+    LLMCotaExcedidaError,
+    LLMIndisponivelError,
+    RespostaViolaGuardrailError,
+)
 from app.services.indicador_service import IndicadorService
 from app.services.sinal_service import SinalService
 
@@ -31,6 +37,7 @@ _CASAS_VARIACAO = Decimal("0.01")
 class ResultadoAnalise:
     analise: AnaliseIA
     em_cache: bool
+    desatualizada: bool = False
 
 
 class AnaliseIAService:
@@ -65,7 +72,12 @@ class AnaliseIAService:
             return ResultadoAnalise(analise=ultima, em_cache=True)
 
         system, prompt = montar_prompt_analise(contexto)
-        texto = gerar_com_guardrail(lambda s: self._provedor.gerar_texto(s, prompt), system)
+        try:
+            texto = gerar_com_guardrail(lambda s: self._provedor.gerar_texto(s, prompt), system)
+        except (LLMIndisponivelError, LLMCotaExcedidaError, RespostaViolaGuardrailError):
+            if ultima is None:
+                raise
+            return ResultadoAnalise(analise=ultima, em_cache=True, desatualizada=True)
         analise = AnaliseIA(
             id=uuid4(),
             ativo_id=ativo.id,

@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
@@ -313,3 +314,18 @@ def test_backtest_com_ativo_inexistente_lanca_erro():
 
     with pytest.raises(AtivoNaoEncontradoError):
         service.backtest(_REGRA_SOBREVENDA_RSI.id, uuid4())
+
+
+def test_sinal_ativado_e_logado(caplog):
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_ATIVO)
+    cotacao_repository = FakeCotacaoRepository()
+    cotacao_repository.salvar_muitas(_cotacoes_rsi_baixo(_ATIVO.id))
+    service = _service(ativo_repository, cotacao_repository, FakeSinalRepository())
+    caplog.set_level(logging.INFO)
+
+    service.avaliar_ativo(_ATIVO.id)
+
+    registro = next(r for r in caplog.records if getattr(r, "evento", None) == "sinal_ativado")
+    assert registro.ativo_id == str(_ATIVO.id)
+    assert registro.regra_id == str(_REGRA_SOBREVENDA_RSI.id)

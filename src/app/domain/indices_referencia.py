@@ -1,0 +1,2 @@
+IBOVESPA_TICKER = "^BVSP"
+IBOVESPA_NOME = "Ibovespa"

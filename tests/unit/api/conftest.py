@@ -6,13 +6,18 @@ from fastapi.testclient import TestClient
 from app.api.deps import (
     get_analise_ia_repository,
     get_ativo_repository,
+    get_barramento_notificacoes,
     get_cotacao_repository,
     get_dados_mercado_service,
+    get_dispositivo_push_repository,
     get_indicador_tecnico_repository,
+    get_inscricao_web_push_repository,
     get_operacao_repository,
     get_portfolio_service,
     get_provedor_llm,
+    get_refresh_token_repository,
     get_sinal_repository,
+    get_ticket_push_repository,
     get_usuario_repository,
     get_watchlist_repository,
 )
@@ -20,13 +25,18 @@ from app.main import app
 from app.services.portfolio_service import PortfolioService
 from tests.fixtures.fake_analise_ia_repository import FakeAnaliseIARepository
 from tests.fixtures.fake_ativo_repository import FakeAtivoRepository
+from tests.fixtures.fake_barramento_notificacoes import FakeBarramentoNotificacoes
 from tests.fixtures.fake_cambio_service import FakeCambioService
 from tests.fixtures.fake_cotacao_repository import FakeCotacaoRepository
 from tests.fixtures.fake_dados_mercado_service import FakeDadosMercadoService
+from tests.fixtures.fake_dispositivo_push_repository import FakeDispositivoPushRepository
 from tests.fixtures.fake_indicador_tecnico_repository import FakeIndicadorTecnicoRepository
+from tests.fixtures.fake_inscricao_web_push_repository import FakeInscricaoWebPushRepository
 from tests.fixtures.fake_operacao_repository import FakeOperacaoRepository
 from tests.fixtures.fake_provedor_llm import FakeProvedorLLM
+from tests.fixtures.fake_refresh_token_repository import FakeRefreshTokenRepository
 from tests.fixtures.fake_sinal_repository import FakeSinalRepository
+from tests.fixtures.fake_ticket_push_repository import FakeTicketPushRepository
 from tests.fixtures.fake_usuario_repository import FakeUsuarioRepository
 from tests.fixtures.fake_watchlist_repository import FakeWatchlistRepository
 
@@ -99,6 +109,31 @@ def dados_mercado_service(
 
 
 @pytest.fixture
+def barramento_notificacoes() -> FakeBarramentoNotificacoes:
+    return FakeBarramentoNotificacoes()
+
+
+@pytest.fixture
+def refresh_token_repository() -> FakeRefreshTokenRepository:
+    return FakeRefreshTokenRepository()
+
+
+@pytest.fixture
+def dispositivo_push_repository() -> FakeDispositivoPushRepository:
+    return FakeDispositivoPushRepository()
+
+
+@pytest.fixture
+def ticket_push_repository() -> FakeTicketPushRepository:
+    return FakeTicketPushRepository()
+
+
+@pytest.fixture
+def inscricao_web_push_repository() -> FakeInscricaoWebPushRepository:
+    return FakeInscricaoWebPushRepository()
+
+
+@pytest.fixture
 def client(
     usuario_repository: FakeUsuarioRepository,
     ativo_repository: FakeAtivoRepository,
@@ -110,6 +145,11 @@ def client(
     operacao_repository: FakeOperacaoRepository,
     provedor_llm: FakeProvedorLLM,
     analise_repository: FakeAnaliseIARepository,
+    refresh_token_repository: FakeRefreshTokenRepository,
+    barramento_notificacoes: FakeBarramentoNotificacoes,
+    dispositivo_push_repository: FakeDispositivoPushRepository,
+    ticket_push_repository: FakeTicketPushRepository,
+    inscricao_web_push_repository: FakeInscricaoWebPushRepository,
 ) -> TestClient:
     app.dependency_overrides[get_usuario_repository] = lambda: usuario_repository
     app.dependency_overrides[get_ativo_repository] = lambda: ativo_repository
@@ -125,9 +165,17 @@ def client(
         dados_mercado_service,
         FakeCambioService(taxa=Decimal(1)),
         None,
+        cotacao_repository,
     )
     app.dependency_overrides[get_provedor_llm] = lambda: provedor_llm
     app.dependency_overrides[get_analise_ia_repository] = lambda: analise_repository
+    app.dependency_overrides[get_refresh_token_repository] = lambda: refresh_token_repository
+    app.dependency_overrides[get_barramento_notificacoes] = lambda: barramento_notificacoes
+    app.dependency_overrides[get_dispositivo_push_repository] = lambda: dispositivo_push_repository
+    app.dependency_overrides[get_ticket_push_repository] = lambda: ticket_push_repository
+    app.dependency_overrides[get_inscricao_web_push_repository] = lambda: (
+        inscricao_web_push_repository
+    )
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

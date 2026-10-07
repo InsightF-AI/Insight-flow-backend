@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -11,14 +11,17 @@ from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.domain.enums.tipo_ativo import TipoAtivo
 from app.domain.enums.tipo_benchmark import TipoBenchmark
 from app.domain.enums.tipo_operacao import TipoOperacao
+from app.domain.indices_referencia import IBOVESPA_NOME, IBOVESPA_TICKER
 from app.domain.value_objects.comparativo import Comparativo
 from app.domain.value_objects.distribuicao import Distribuicao
 from app.domain.value_objects.posicao import Posicao
 from app.domain.value_objects.rentabilidade import Rentabilidade
 from app.integrations.bcb.client import BcbClient, BcbIndisponivelError
-from app.integrations.brapi.client import BrapiIndisponivelError, TickerNaoEncontradoError
+from app.integrations.erros import FonteDadosIndisponivelError, TickerNaoEncontradoError
 from app.repositories.interfaces.ativo_repository import AtivoRepository
+from app.repositories.interfaces.cotacao_repository import CotacaoRepository
 from app.repositories.interfaces.operacao_repository import OperacaoRepository
+from app.services.ativo_service import AtivoService
 from app.services.cambio_service import CambioService
 from app.services.dados_mercado_service import DadosMercadoService
 from app.services.exceptions import (
@@ -30,6 +33,8 @@ from app.services.exceptions import (
 )
 
 logger = logging.getLogger(__name__)
+
+_TOLERANCIA_INICIO_BENCHMARK = timedelta(days=5)
 
 
 @dataclass
@@ -64,12 +69,16 @@ class PortfolioService:
         dados_mercado_service: DadosMercadoService,
         cambio_service: CambioService,
         bcb_client: BcbClient,
+        cotacao_repository: CotacaoRepository,
     ):
         self._operacao_repository = operacao_repository
         self._ativo_repository = ativo_repository
         self._dados_mercado_service = dados_mercado_service
         self._cambio_service = cambio_service
         self._bcb_client = bcb_client
+        self._ativo_service = AtivoService(
+            ativo_repository, dados_mercado_service, cotacao_repository
+        )
 
     def registrar_operacao(
         self,
@@ -135,7 +144,7 @@ class PortfolioService:
             ativo = self._ativo_repository.buscar_por_id(ativo_id)
             try:
                 cotacao = self._dados_mercado_service.buscar_cotacao_atual(ativo.ticker)
-            except (BrapiIndisponivelError, TickerNaoEncontradoError):
+            except (FonteDadosIndisponivelError, TickerNaoEncontradoError):
                 logger.warning(
                     "Cotacao indisponivel para %s; ativo omitido das posicoes.", ativo.ticker
                 )
@@ -178,7 +187,7 @@ class PortfolioService:
             custo_base_brl += self._cambio_service.converter(custo_base, de=ativo.moeda, para="BRL")
             try:
                 cotacao = self._dados_mercado_service.buscar_cotacao_atual(ativo.ticker)
-            except (BrapiIndisponivelError, TickerNaoEncontradoError):
+            except (FonteDadosIndisponivelError, TickerNaoEncontradoError):
                 logger.warning(
                     "Cotacao indisponivel para %s; excluido da rentabilidade.", ativo.ticker
                 )
@@ -253,15 +262,17 @@ class PortfolioService:
         return fator - Decimal(1)
 
     def _rentabilidade_ibovespa(self, data_inicio: date) -> Decimal | None:
-        periodo = _periodo_desde(data_inicio)
+        ibovespa = self._ativo_service.buscar_ou_criar_indice(IBOVESPA_TICKER, IBOVESPA_NOME)
         try:
-            pontos = self._dados_mercado_service.buscar_historico("^BVSP", periodo)
-        except (BrapiIndisponivelError, TickerNaoEncontradoError):
+            pontos = self._ativo_service.historico(ibovespa.id, _periodo_desde(data_inicio))
+        except (FonteDadosIndisponivelError, TickerNaoEncontradoError):
             logger.warning("Ibovespa indisponivel; comparativo de benchmark sem Ibovespa.")
             return None
-        if not pontos:
+
+        base = next((ponto for ponto in pontos if ponto.data.date() >= data_inicio), None)
+        if base is None or base.data.date() - data_inicio > _TOLERANCIA_INICIO_BENCHMARK:
             return None
-        return (pontos[-1].fechamento - pontos[0].fechamento) / pontos[0].fechamento
+        return (pontos[-1].fechamento - base.fechamento) / base.fechamento
 
     def _replay_por_ativo(self, usuario_id: UUID) -> dict[UUID, EstadoPosicao]:
         operacoes_por_ativo: dict[UUID, list[Operacao]] = {}
@@ -287,10 +298,6 @@ class PortfolioService:
 
 def _periodo_desde(data_inicio: date) -> PeriodoHistorico:
     dias = (datetime.now(UTC).date() - data_inicio).days
-    if dias <= 1:
-        return PeriodoHistorico.UM_DIA
-    if dias <= 7:
-        return PeriodoHistorico.UMA_SEMANA
     if dias <= 30:
         return PeriodoHistorico.UM_MES
     if dias <= 90:

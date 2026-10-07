@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -16,6 +17,8 @@ from app.repositories.interfaces.cotacao_repository import CotacaoRepository
 from app.repositories.interfaces.sinal_repository import SinalRepository
 from app.services.exceptions import AtivoNaoEncontradoError, RegraNaoEncontradaError
 from app.services.indicador_service import IndicadorService
+
+logger = logging.getLogger(__name__)
 
 _OPERADORES: dict[str, Callable[[Decimal, Decimal], bool]] = {
     "menor_que": lambda valor, limiar: valor < limiar,
@@ -77,6 +80,16 @@ class SinalService:
                     data_desativacao=None,
                 )
                 self._sinal_repository.salvar(novo)
+                logger.info(
+                    "Sinal %s ativado em %s.",
+                    regra.nome,
+                    ativo.ticker,
+                    extra={
+                        "evento": "sinal_ativado",
+                        "ativo_id": str(ativo.id),
+                        "regra_id": str(regra.id),
+                    },
+                )
                 vigentes.append(novo)
             elif not satisfeita and sinal_existente is not None:
                 sinal_existente.data_desativacao = datetime.now(UTC)

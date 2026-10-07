@@ -7,15 +7,37 @@ from app.integrations.brapi.client import (
     INTERVALO_DIARIO,
     BrapiClient,
     BrapiIndisponivelError,
-    TickerNaoEncontradoError,
     intervalo_de,
 )
+from app.integrations.erros import TickerNaoEncontradoError
+from app.integrations.limitador import LimitadorTaxa, LimiteTaxaExcedidoError
+from app.integrations.retentativa import PoliticaRetentativa
 
 
-def _client(handler, api_key: str | None = None) -> BrapiClient:
+def _client(
+    handler, api_key: str | None = None, limitador: LimitadorTaxa | None = None
+) -> BrapiClient:
     transporte = httpx.MockTransport(handler)
     http_client = httpx.Client(base_url="https://brapi.dev", transport=transporte)
-    return BrapiClient(http_client, api_key=api_key)
+    return BrapiClient(
+        http_client,
+        api_key=api_key,
+        limitador=limitador,
+        politica=PoliticaRetentativa(tentativas=3),
+        dormir=lambda _: None,
+    )
+
+
+class _LimitadorContador(LimitadorTaxa):
+    def __init__(self, recusar: bool = False):
+        super().__init__(requisicoes_por_minuto=60, espera_maxima_segundos=0.0)
+        self.aquisicoes = 0
+        self._recusar = recusar
+
+    def adquirir(self) -> None:
+        self.aquisicoes += 1
+        if self._recusar:
+            raise LimiteTaxaExcedidoError(1.0)
 
 
 def test_intervalo_de_periodos_diarios_e_intervalo_diario():
@@ -277,3 +299,95 @@ def test_buscar_historico_com_results_vazio_lanca_erro_especifico():
 
     with pytest.raises(TickerNaoEncontradoError):
         client.buscar_historico("NAOEXISTE", PeriodoHistorico.UM_MES)
+
+
+def test_buscar_historico_ordena_os_pontos_do_mais_antigo_para_o_mais_recente():
+    def _ponto(timestamp: int, fechamento: float) -> dict:
+        return {
+            "date": timestamp,
+            "open": fechamento,
+            "high": fechamento,
+            "low": fechamento,
+            "close": fechamento,
+            "volume": 1000,
+        }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    {
+                        "symbol": "^BVSP",
+                        "data": {
+                            "historicalDataPrice": [
+                                _ponto(1704240000, 130.0),
+                                _ponto(1704153600, 120.0),
+                                _ponto(1704067200, 110.0),
+                            ]
+                        },
+                    }
+                ]
+            },
+        )
+
+    client = _client(handler)
+
+    pontos = client.buscar_historico("^BVSP", PeriodoHistorico.UM_MES)
+
+    assert [float(p.fechamento) for p in pontos] == [110.0, 120.0, 130.0]
+
+
+def test_rate_limit_e_erro_do_servidor_sao_retentados_ate_ter_sucesso():
+    respostas = iter(
+        [
+            httpx.Response(429),
+            httpx.Response(502),
+            httpx.Response(200, json={"results": []}),
+        ]
+    )
+    limitador = _LimitadorContador()
+
+    encontrados = _client(lambda request: next(respostas), limitador=limitador).buscar_ativos("x")
+
+    assert encontrados == []
+    assert limitador.aquisicoes == 3
+
+
+def test_rate_limit_persistente_lanca_brapi_indisponivel():
+    chamadas = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        chamadas.append(request)
+        return httpx.Response(429)
+
+    with pytest.raises(BrapiIndisponivelError):
+        _client(handler).buscar_ativos("x")
+
+    assert len(chamadas) == 3
+
+
+def test_ticker_inexistente_nao_e_retentado():
+    chamadas = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        chamadas.append(request)
+        return httpx.Response(404, json={"error": True})
+
+    with pytest.raises(TickerNaoEncontradoError):
+        _client(handler).buscar_cotacao_atual("XXXX3")
+
+    assert len(chamadas) == 1
+
+
+def test_limitador_sem_vaga_lanca_brapi_indisponivel_sem_chamar_a_api():
+    chamadas = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        chamadas.append(request)
+        return httpx.Response(200, json={"results": []})
+
+    with pytest.raises(BrapiIndisponivelError):
+        _client(handler, limitador=_LimitadorContador(recusar=True)).buscar_ativos("x")
+
+    assert chamadas == []

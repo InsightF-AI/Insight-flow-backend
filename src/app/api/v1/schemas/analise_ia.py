@@ -16,6 +16,7 @@ class AnaliseIAResponse(BaseModel):
     gerado_em: datetime
     modelo: str
     em_cache: bool
+    desatualizada: bool
     aviso_legal: str
 
     @staticmethod
@@ -26,6 +27,7 @@ class AnaliseIAResponse(BaseModel):
             gerado_em=resultado.analise.gerado_em,
             modelo=resultado.analise.modelo,
             em_cache=resultado.em_cache,
+            desatualizada=resultado.desatualizada,
             aviso_legal=AVISO_LEGAL,
         )
 

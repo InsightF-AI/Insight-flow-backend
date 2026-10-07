@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -7,10 +8,12 @@ from app.domain.entities.alerta_personalizado import AlertaPersonalizado
 from app.domain.entities.ativo import Ativo
 from app.domain.entities.sinal import Sinal
 from app.domain.entities.watchlist import Watchlist
+from app.domain.enums.periodo_historico import PeriodoHistorico
 from app.domain.enums.tipo_ativo import TipoAtivo
 from app.domain.enums.tipo_condicao_alerta import TipoCondicaoAlerta
 from app.domain.enums.tipo_notificacao import TipoNotificacao
 from app.domain.regras_sinal_padrao import REGRAS_PADRAO
+from app.domain.value_objects.politica_historico import PoliticaHistorico
 from app.integrations.brapi.client import CotacaoAtual, PontoHistorico
 from app.scheduler.ciclo import executar_ciclo_monitoramento
 from app.services.alerta_service import AlertaService
@@ -29,6 +32,12 @@ from tests.fixtures.fake_sinal_repository import FakeSinalRepository
 from tests.fixtures.fake_watchlist_repository import FakeWatchlistRepository
 
 _REGRA_RSI_BAIXO = REGRAS_PADRAO[0]
+
+_POLITICA = PoliticaHistorico(
+    periodo_backfill=PeriodoHistorico.TRES_MESES,
+    periodo_backfill_cripto=PeriodoHistorico.CINCO_ANOS,
+    minimo_cotacoes=50,
+)
 
 
 @dataclass
@@ -76,7 +85,9 @@ def _construir_ciclo(dados_mercado_service: FakeDadosMercadoService | None = Non
     )
 
 
-def _executar(ciclo: _Ciclo, tipos_ativo: set[TipoAtivo]) -> None:
+def _executar(
+    ciclo: _Ciclo, tipos_ativo: set[TipoAtivo], politica: PoliticaHistorico = _POLITICA
+) -> None:
     executar_ciclo_monitoramento(
         tipos_ativo,
         ciclo.ativo_repository,
@@ -88,6 +99,7 @@ def _executar(ciclo: _Ciclo, tipos_ativo: set[TipoAtivo]) -> None:
         ciclo.alerta_service,
         ciclo.sinal_service,
         ciclo.notificacao_service,
+        politica=politica,
     )
 
 
@@ -294,7 +306,95 @@ def test_falha_em_ativo_invoca_callback_ao_falhar_ativo():
         ciclo.alerta_service,
         ciclo.sinal_service,
         ciclo.notificacao_service,
+        politica=_POLITICA,
         ao_falhar_ativo=_ao_falhar_ativo,
     )
 
     assert chamadas == 1
+
+
+def _ativo_em_watchlist(ciclo: _Ciclo) -> Ativo:
+    ativo = _ativo()
+    ciclo.ativo_repository.salvar(ativo)
+    ciclo.watchlist_repository.salvar(
+        Watchlist.adicionar(
+            id=uuid4(), usuario_id=uuid4(), ativo_id=ativo.id, adicionado_em=datetime.now(UTC)
+        )
+    )
+    return ativo
+
+
+def test_ativo_em_watchlist_com_poucas_cotacoes_coleta_periodo_de_backfill():
+    dados_mercado_service = FakeDadosMercadoService(
+        cotacoes={"PETR4": _cotacao("PETR4", "20.00")},
+        historicos={"PETR4": _historico_rsi_baixo()},
+    )
+    ciclo = _construir_ciclo(dados_mercado_service)
+    _ativo_em_watchlist(ciclo)
+
+    _executar(ciclo, {TipoAtivo.ACAO})
+
+    assert dados_mercado_service.historicos_solicitados == [("PETR4", PeriodoHistorico.TRES_MESES)]
+
+
+def test_ativo_em_watchlist_com_cotacoes_suficientes_coleta_apenas_a_ultima_semana():
+    historico = _historico_rsi_baixo()
+    dados_mercado_service = FakeDadosMercadoService(
+        cotacoes={"PETR4": _cotacao("PETR4", "20.00")},
+        historicos={"PETR4": historico},
+    )
+    ciclo = _construir_ciclo(dados_mercado_service)
+    ativo = _ativo_em_watchlist(ciclo)
+    ciclo.ativo_service.historico(ativo.id, PeriodoHistorico.TRES_MESES)
+    dados_mercado_service.historicos_solicitados.clear()
+
+    _executar(
+        ciclo,
+        {TipoAtivo.ACAO},
+        politica=PoliticaHistorico(
+            periodo_backfill=PeriodoHistorico.TRES_MESES,
+            periodo_backfill_cripto=PeriodoHistorico.CINCO_ANOS,
+            minimo_cotacoes=len(historico),
+        ),
+    )
+
+    assert dados_mercado_service.historicos_solicitados == [("PETR4", PeriodoHistorico.UMA_SEMANA)]
+
+
+def test_cripto_em_watchlist_no_ciclo_de_cripto_coleta_cinco_anos():
+    dados_mercado_service = FakeDadosMercadoService(
+        cotacoes={"BTC": _cotacao("BTC", "450000")},
+        historicos={"BTC": _historico_rsi_baixo()},
+        tickers_diarios={"BTC"},
+    )
+    ciclo = _construir_ciclo(dados_mercado_service)
+    btc = _ativo("BTC", TipoAtivo.CRIPTO)
+    ciclo.ativo_repository.salvar(btc)
+    ciclo.watchlist_repository.salvar(
+        Watchlist.adicionar(
+            id=uuid4(), usuario_id=uuid4(), ativo_id=btc.id, adicionado_em=datetime.now(UTC)
+        )
+    )
+
+    _executar(ciclo, {TipoAtivo.CRIPTO})
+
+    assert dados_mercado_service.historicos_solicitados == [("BTC", PeriodoHistorico.CINCO_ANOS)]
+    assert len(ciclo.cotacao_repository.listar_por_ativo(btc.id)) == len(_historico_rsi_baixo())
+
+
+def test_ciclo_loga_resumo_com_ativos_processados_e_com_falha(caplog):
+    ativo_ok = _ativo("PETR4")
+    ativo_sem_cotacao = _ativo("VALE3")
+    dados_mercado_service = FakeDadosMercadoService(cotacoes={"PETR4": _cotacao("PETR4", "40.00")})
+    ciclo = _construir_ciclo(dados_mercado_service)
+    ciclo.ativo_repository.salvar(ativo_ok)
+    ciclo.ativo_repository.salvar(ativo_sem_cotacao)
+    ciclo.alerta_repository.salvar(_alerta(uuid4(), ativo_ok.id))
+    ciclo.alerta_repository.salvar(_alerta(uuid4(), ativo_sem_cotacao.id))
+    caplog.set_level(logging.INFO)
+
+    _executar(ciclo, {TipoAtivo.ACAO})
+
+    registro = next(r for r in caplog.records if getattr(r, "evento", None) == "ciclo_concluido")
+    assert registro.ativos_processados == 2
+    assert registro.ativos_com_falha == 1

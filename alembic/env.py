@@ -8,9 +8,13 @@ from app.db.base import Base
 from app.db.models.alerta_personalizado import AlertaPersonalizadoModel
 from app.db.models.ativo import AtivoModel
 from app.db.models.cotacao import CotacaoModel
+from app.db.models.dispositivo_push import DispositivoPushModel
 from app.db.models.indicador_tecnico import IndicadorTecnicoModel
+from app.db.models.inscricao_web_push import InscricaoWebPushModel
 from app.db.models.notificacao import NotificacaoModel
+from app.db.models.refresh_token import RefreshTokenModel
 from app.db.models.sinal import SinalModel
+from app.db.models.ticket_push import TicketPushModel
 from app.db.models.usuario import UsuarioModel
 from app.db.models.watchlist import WatchlistModel
 
