@@ -19,11 +19,11 @@ permissions:
   packages: write
 
 concurrency:
-  group: deploy-insightflow
+  group: deploy-insightflow-backend
   cancel-in-progress: false
 
 jobs:
-  test:
+  ci:
     name: Testes antes do deploy
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -74,10 +74,10 @@ jobs:
       - name: Testes
         run: pytest -q
 
-  deploy:
+  homologacao:
     name: Deploy - Homologação
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: test
+    needs: ci
     runs-on: ubuntu-latest
     environment:
       name: homologacao
@@ -153,8 +153,8 @@ jobs:
           curl --retry 12 --retry-delay 5 --retry-all-errors -fsS \
             https://hom-api-insight.agilesoftware.net.br/health
 
-  deploy-producao:
-    name: Deploy - Producao
+  producao:
+    name: Deploy - Produção
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     environment:

@@ -28,7 +28,7 @@ jobs:
       - name: Rodar análise estática
         run: ruff check .
 
-  test:
+  testes:
     name: Testes (pytest)
     runs-on: ubuntu-latest
     # postgres real pros testes de integracao dos repositorios (tests/integration)
@@ -83,7 +83,7 @@ jobs:
             echo "Nenhum teste encontrado ainda — etapa de teste configurada e pronta."
           fi
 
-  image:
+  imagem:
     name: Build da imagem (sem publicar)
     runs-on: ubuntu-latest
     steps:
