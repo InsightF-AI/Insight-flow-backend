@@ -1,4 +1,4 @@
-# CD: push na main publica a imagem e implanta em homologação (vm-lab).
+# CD: push na main publica a imagem, implanta na homologação e espera aprovação para a produção.
 name: CD
 
 on:
@@ -11,7 +11,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: deploy-homologacao
+  group: deploy-insightflow
   cancel-in-progress: false
 
 jobs:
@@ -142,3 +142,55 @@ jobs:
         run: |
           curl --retry 12 --retry-delay 5 --retry-all-errors -fsS \
             https://hom-api-insight.agilesoftware.net.br/health
+
+  deploy-producao:
+    name: Deploy - Producao
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://api-insight.agilesoftware.net.br
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v5
+
+      - name: Preparar SSH
+        env:
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$PROD_HOST" >> ~/.ssh/known_hosts
+
+      - name: Copiar compose e subir na Hostinger
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          GHCR_TOKEN: ${{ github.token }}
+          IMAGE_TAG: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          SSH=(ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes)
+          "${SSH[@]}" "$PROD_USER@$PROD_HOST" "mkdir -p ~/apps/insightflow/backend"
+          scp -i ~/.ssh/deploy_key -o IdentitiesOnly=yes \
+            deploy/docker-compose.prod.yml \
+            "$PROD_USER@$PROD_HOST:apps/insightflow/backend/docker-compose.yml"
+          printf '%s\n' "$GHCR_TOKEN" | "${SSH[@]}" "$PROD_USER@$PROD_HOST" \
+            "install -m 700 -d /root/.docker-deploy && export DOCKER_CONFIG=/root/.docker-deploy && docker login ghcr.io -u ${ACTOR} --password-stdin"
+          "${SSH[@]}" "$PROD_USER@$PROD_HOST" \
+            "set -euo pipefail
+             export DOCKER_CONFIG=/root/.docker-deploy
+             cd ~/apps/insightflow/backend
+             export TAG='${IMAGE_TAG}'
+             docker compose pull
+             docker compose up -d --wait postgres redis
+             docker compose run --rm --no-deps migrate
+             docker compose up -d --force-recreate --no-deps backend"
+
+      - name: Smoke test
+        run: |
+          curl --retry 12 --retry-delay 5 --retry-all-errors -fsS \
+            https://api-insight.agilesoftware.net.br/health

@@ -1,0 +1,73 @@
+# Produção na Hostinger. O CD copia este arquivo para ~/apps/insightflow/backend.
+# O proxy é o do Coolify: rede coolify, porta https, certificado letsencrypt.
+# O .env fica só na VPS. Nunca rode `docker compose down -v`.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: insightflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [internal]
+
+  redis:
+    image: redis:7-alpine
+    container_name: insightflow-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [internal]
+
+  migrate:
+    image: ghcr.io/insightf-ai/insight-flow-backend:${TAG:-latest}
+    command: alembic upgrade head
+    env_file: .env
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+
+  backend:
+    image: ghcr.io/insightf-ai/insight-flow-backend:${TAG:-latest}
+    container_name: insightflow-backend
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks: [internal, coolify]
+    labels:
+      - traefik.enable=true
+      - coolify.managed=true
+      - traefik.docker.network=coolify
+      - traefik.http.routers.insightflow-api.rule=Host(`api-insight.agilesoftware.net.br`)
+      - traefik.http.routers.insightflow-api.entrypoints=https
+      - traefik.http.routers.insightflow-api.tls=true
+      - traefik.http.routers.insightflow-api.tls.certresolver=letsencrypt
+      - traefik.http.services.insightflow-api.loadbalancer.server.port=8000
+
+networks:
+  internal:
+  coolify:
+    external: true
+
+volumes:
+  pgdata:
