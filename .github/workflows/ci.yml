@@ -82,3 +82,21 @@ jobs:
           else
             echo "Nenhum teste encontrado ainda — etapa de teste configurada e pronta."
           fi
+
+  image:
+    name: Build da imagem (sem publicar)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v5
+
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build linux/amd64
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          platforms: linux/amd64
+          tags: insight-flow-backend:ci
