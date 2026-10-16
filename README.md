@@ -46,6 +46,15 @@ Sobe API (`http://localhost:8000`), Postgres e Redis, aplicando as migrations do
 
 Sem `BRAPI_API_KEY` configurada no `.env`, a brapi.dev só retorna cotação e histórico para os tickers de sandbox: `PETR4`, `MGLU3`, `VALE3`, `ITUB4`. A busca de ativos (`/ativos/buscar`) funciona sem chave para qualquer ticker.
 
+## Testes
+
+883 testes automatizados, verdes no CI a cada push e pull request. A pirâmide, as técnicas e o que fica para depois estão em [docs/testes.md](docs/testes.md).
+
+```
+pytest -q            # tudo (precisa de Postgres e Redis)
+pytest -q tests/unit  # só o que roda sem infraestrutura
+```
+
 ## Stack
 
 Python 3.11+, FastAPI, SQLAlchemy, PostgreSQL, Redis, Pydantic, APScheduler, pandas-ta.
