@@ -1,10 +1,18 @@
-# CD: push na main publica a imagem, implanta na homologação e espera aprovação para a produção.
+# CD: push na main testa, publica a imagem e implanta só na homologação.
+# Produção só muda com uma tag vX.Y.Z ou com o disparo manual, e reaproveita
+# a imagem que a homologação já publicou. Esse passo não faz build novo.
 name: CD
 
 on:
   push:
     branches: [main]
+    tags: ["v*.*.*"]
   workflow_dispatch:
+    inputs:
+      image_sha:
+        description: SHA do commit já implantado na homologação
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -17,6 +25,7 @@ concurrency:
 jobs:
   test:
     name: Testes antes do deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -67,6 +76,7 @@ jobs:
 
   deploy:
     name: Deploy - Homologação
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: test
     runs-on: ubuntu-latest
     environment:
@@ -145,7 +155,7 @@ jobs:
 
   deploy-producao:
     name: Deploy - Producao
-    needs: deploy
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -153,6 +163,30 @@ jobs:
     steps:
       - name: Checkout do código
         uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.image_sha || github.ref }}
+
+      - name: Commit da imagem ja testada
+        id: image
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "SHA invalido"
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Confirmar que a imagem ja existe
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          IMAGE: ${{ steps.image.outputs.name }}:${{ steps.image.outputs.sha }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$GHCR_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          docker manifest inspect "$IMAGE" >/dev/null
 
       - name: Preparar SSH
         env:
@@ -169,7 +203,7 @@ jobs:
           PROD_HOST: ${{ secrets.PROD_HOST }}
           PROD_USER: ${{ secrets.PROD_USER }}
           GHCR_TOKEN: ${{ github.token }}
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: ${{ steps.image.outputs.sha }}
           ACTOR: ${{ github.actor }}
         run: |
           set -euo pipefail
