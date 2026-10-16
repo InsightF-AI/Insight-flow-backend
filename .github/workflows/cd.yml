@@ -161,6 +161,12 @@ jobs:
       name: production
       url: https://api-insight.agilesoftware.net.br
     steps:
+      - name: Somente o responsavel publica
+        if: github.actor != 'Vinicius11s'
+        run: |
+          echo "Publicacao recusada para $GITHUB_ACTOR"
+          exit 1
+
       - name: Checkout do código
         uses: actions/checkout@v5
         with:
