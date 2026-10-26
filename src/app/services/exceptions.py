@@ -74,3 +74,7 @@ class RefreshTokenInvalidoError(Exception):
 
 class TokenPushInvalidoError(Exception):
     pass
+
+
+class TokenRedefinicaoInvalidoError(Exception):
+    pass

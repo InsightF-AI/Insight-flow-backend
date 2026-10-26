@@ -211,7 +211,7 @@
 
   .toc .m.get { color: var(--get); }
   .toc .m.post { color: var(--post); }
-  .toc .m.patch { color: var(--patch); }
+  .toc .m.patch, .toc .m.put { color: var(--patch); }
   .toc .m.delete { color: var(--delete); }
 
   /* ---------- Main content ---------- */
@@ -274,7 +274,7 @@
 
   .method.get { background: var(--get-soft); color: var(--get); }
   .method.post { background: var(--post-soft); color: var(--post); }
-  .method.patch { background: var(--patch-soft); color: var(--patch); }
+  .method.patch, .method.put { background: var(--patch-soft); color: var(--patch); }
   .method.delete { background: var(--delete-soft); color: var(--delete); }
 
   .endpoint-path {
@@ -542,6 +542,9 @@
       <a href="#ep-login"><span class="m post">POST</span>/auth/login</a>
       <a href="#ep-refresh"><span class="m post">POST</span>/auth/refresh</a>
       <a href="#ep-logout"><span class="m post">POST</span>/auth/logout</a>
+      <a href="#ep-senha-alterar"><span class="m put">PUT</span>/usuarios/me/senha</a>
+      <a href="#ep-senha-recuperar"><span class="m post">POST</span>/auth/recuperar-senha</a>
+      <a href="#ep-senha-redefinir"><span class="m post">POST</span>/auth/redefinir-senha</a>
     </div>
     <div class="toc-group">
       <div class="toc-group-title">Ativos</div>
@@ -882,6 +885,90 @@
               <div class="subhead">204 No Content</div>
             </div>
           </div>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-senha-alterar">
+        <div class="endpoint-head">
+          <span class="method put">PUT</span>
+          <span class="endpoint-path">/api/v1/usuarios/me/senha</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Troca a senha do usuário logado. Revoga <b>todos</b> os refresh tokens dele (todos os dispositivos saem; o access token atual vale até expirar). <code>nova_senha</code> tem 8 a 128 caracteres.
+          </p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"senha_atual"</span><span class="tok-punc">:</span> <span class="tok-str">"segredo123"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"nova_senha"</span><span class="tok-punc">:</span> <span class="tok-str">"novasenha456"</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+            <div>
+              <div class="subhead">204 No Content</div>
+            </div>
+          </div>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">400</td><td>"Senha atual incorreta"</td></tr>
+            <tr><td class="status s4">422</td><td>nova_senha fora do tamanho</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-senha-recuperar">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/v1/auth/recuperar-senha</span>
+          <span class="auth-flag">🔓 público</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Envia por e-mail um link de redefinição (válido por 30 min) no formato <code>RECUPERACAO_SENHA_URL + token</code>. Responde <b>sempre</b> 202, mesmo para e-mail não cadastrado (não revela quem tem conta). A tela de destino do link é do client: ela lê o <code>token</code> da URL e chama <code>/auth/redefinir-senha</code>.
+          </p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"email"</span><span class="tok-punc">:</span> <span class="tok-str">"ana@example.com"</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+            <div>
+              <div class="subhead">202 Accepted</div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-senha-redefinir">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/v1/auth/redefinir-senha</span>
+          <span class="auth-flag">🔓 público</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Define a nova senha a partir do token do e-mail. O token vale uma única vez (deixa de valer assim que a senha muda) e também revoga todas as sessões. Depois disso o client manda o usuário para o login.
+          </p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"token"</span><span class="tok-punc">:</span> <span class="tok-str">"eyJhbGciOi..."</span><span class="tok-punc">,</span>
+  <span class="tok-key">"nova_senha"</span><span class="tok-punc">:</span> <span class="tok-str">"novasenha456"</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+            <div>
+              <div class="subhead">204 No Content</div>
+            </div>
+          </div>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">400</td><td>"Token de redefinicao invalido" (expirado, já usado ou adulterado)</td></tr>
+            <tr><td class="status s4">422</td><td>nova_senha fora do tamanho</td></tr>
+          </table>
         </div>
       </article>
     </section>

@@ -6,8 +6,10 @@ import pytest
 from app.core.security import (
     TokenInvalidoError,
     criar_token,
+    criar_token_redefinicao,
     decodificar_token,
     decodificar_token_com_expiracao,
+    decodificar_token_redefinicao,
 )
 
 SECRET = "segredo-de-teste"
@@ -59,3 +61,39 @@ def test_decodificar_token_com_expiracao_com_segredo_errado_lanca_erro():
 
     with pytest.raises(TokenInvalidoError):
         decodificar_token_com_expiracao(token, "outro")
+
+
+def test_token_de_redefinicao_carrega_usuario_e_impressao():
+    usuario_id = uuid4()
+
+    token = criar_token_redefinicao(usuario_id, "fp123", SECRET, expiracao_minutos=30)
+
+    assert decodificar_token_redefinicao(token, SECRET) == (usuario_id, "fp123")
+
+
+def test_token_de_redefinicao_nao_serve_como_access_token():
+    token = criar_token_redefinicao(uuid4(), "fp123", SECRET, expiracao_minutos=30)
+
+    with pytest.raises(TokenInvalidoError):
+        decodificar_token(token, secret_key=SECRET)
+
+
+def test_token_de_redefinicao_nao_autentica_o_websocket():
+    token = criar_token_redefinicao(uuid4(), "fp123", SECRET, expiracao_minutos=30)
+
+    with pytest.raises(TokenInvalidoError):
+        decodificar_token_com_expiracao(token, secret_key=SECRET)
+
+
+def test_access_token_nao_serve_como_token_de_redefinicao():
+    token = criar_token(uuid4(), secret_key=SECRET, expiracao_minutos=60)
+
+    with pytest.raises(TokenInvalidoError):
+        decodificar_token_redefinicao(token, SECRET)
+
+
+def test_token_de_redefinicao_expirado_e_invalido():
+    token = criar_token_redefinicao(uuid4(), "fp123", SECRET, expiracao_minutos=-1)
+
+    with pytest.raises(TokenInvalidoError):
+        decodificar_token_redefinicao(token, SECRET)

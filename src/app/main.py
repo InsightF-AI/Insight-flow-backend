@@ -23,6 +23,9 @@ from app.scheduler.jobs import registrar_jobs
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    problemas = settings.problemas_de_configuracao()
+    if problemas:
+        raise RuntimeError("Configuracao invalida: " + "; ".join(problemas))
     scheduler = BackgroundScheduler()
     if settings.scheduler_habilitado:
         registrar_jobs(scheduler, settings)

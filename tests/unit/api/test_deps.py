@@ -123,3 +123,15 @@ def test_notificacao_service_publica_no_barramento_e_inclui_o_canal_expo():
 
     assert barramento.publicados[0][0] == notificacao.usuario_id
     assert [type(c).__name__ for c in service._canais] == ["CanalTempoReal", "CanalExpo"]
+
+
+def test_get_enviador_email_escolhe_brevo_smtp_ou_log():
+    from app.api.deps import get_enviador_email
+    from app.integrations.email.enviador import EnviadorBrevo, EnviadorLog, EnviadorSmtp
+
+    base = {"_env_file": None, "email_remetente": "no-reply@test"}
+
+    assert isinstance(get_enviador_email(Settings(**base, brevo_api_key="k")), EnviadorBrevo)
+    assert isinstance(get_enviador_email(Settings(**base, smtp_host="smtp.test")), EnviadorSmtp)
+    assert isinstance(get_enviador_email(Settings(**base)), EnviadorLog)
+    assert isinstance(get_enviador_email(Settings(_env_file=None, brevo_api_key="k")), EnviadorLog)

@@ -154,3 +154,21 @@ def test_web_push_configurado_exige_contato_mailto_ou_https():
     assert configurado("https://insightflow.app/contato")
     assert not configurado("equipe@exemplo.com")
     assert not configurado("http://insightflow.app")
+
+
+def test_configuracao_de_desenvolvimento_padrao_nao_tem_problemas():
+    assert Settings(_env_file=None).problemas_de_configuracao() == []
+
+
+def test_jwt_secret_vazio_e_problema_em_qualquer_ambiente():
+    assert Settings(_env_file=None, jwt_secret_key="").problemas_de_configuracao()
+
+
+def test_producao_recusa_jwt_secret_padrao_ou_curto():
+    padrao = Settings(_env_file=None, ambiente="producao")
+    curto = Settings(_env_file=None, ambiente="producao", jwt_secret_key="curto")
+    forte = Settings(_env_file=None, ambiente="producao", jwt_secret_key="x" * 32)
+
+    assert padrao.problemas_de_configuracao()
+    assert curto.problemas_de_configuracao()
+    assert forte.problemas_de_configuracao() == []

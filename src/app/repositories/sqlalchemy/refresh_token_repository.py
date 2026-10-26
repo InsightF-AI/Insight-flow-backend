@@ -54,6 +54,17 @@ class SqlAlchemyRefreshTokenRepository(RefreshTokenRepository):
         )
         self._session.commit()
 
+    def revogar_do_usuario(self, usuario_id: UUID, revogado_em: datetime) -> None:
+        self._session.execute(
+            update(RefreshTokenModel)
+            .where(
+                RefreshTokenModel.usuario_id == usuario_id,
+                RefreshTokenModel.revogado_em.is_(None),
+            )
+            .values(revogado_em=revogado_em)
+        )
+        self._session.commit()
+
     @staticmethod
     def _para_entidade(modelo: RefreshTokenModel) -> RefreshToken:
         return RefreshToken(

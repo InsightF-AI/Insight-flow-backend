@@ -8,15 +8,30 @@ from app.integrations.retentativa import PoliticaRetentativa
 from app.integrations.web_push.validacao import HOSTS_PERMITIDOS_PADRAO
 from app.integrations.web_push.vapid import ChaveVapid
 
+JWT_SECRET_PADRAO = "dev-secret-key-nao-usar-em-producao"
+_JWT_SECRET_TAMANHO_MINIMO = 32
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql://insightflow:insightflow@localhost:5432/insightflow"
 
-    jwt_secret_key: str = "dev-secret-key-nao-usar-em-producao"
+    ambiente: str = "desenvolvimento"
+    jwt_secret_key: str = JWT_SECRET_PADRAO
     jwt_expiration_minutes: int = 30
     refresh_token_expiracao_dias: int = 30
+    recuperacao_senha_url: str = "http://localhost:5173/redefinir-senha?token="
+    recuperacao_senha_expiracao_minutos: int = 30
+    smtp_host: str = ""
+    smtp_porta: int = 587
+    smtp_usuario: str = ""
+    smtp_senha: str = ""
+    smtp_starttls: bool = True
+    brevo_api_key: str = ""
+    brevo_base_url: str = "https://api.brevo.com"
+    email_remetente: str = ""
+    email_remetente_nome: str = "InsightFlow"
 
     cors_origens: list[str] = ["http://localhost:5173"]
     log_nivel: str = "INFO"
@@ -89,6 +104,23 @@ class Settings(BaseSettings):
         except ValueError:
             return False
         return True
+
+    def em_producao(self) -> bool:
+        return self.ambiente == "producao"
+
+    def problemas_de_configuracao(self) -> list[str]:
+        problemas = []
+        if not self.jwt_secret_key:
+            problemas.append("JWT_SECRET_KEY esta vazio")
+        elif self.em_producao() and (
+            self.jwt_secret_key == JWT_SECRET_PADRAO
+            or len(self.jwt_secret_key) < _JWT_SECRET_TAMANHO_MINIMO
+        ):
+            problemas.append(
+                f"JWT_SECRET_KEY em producao precisa ser proprio e ter ao menos "
+                f"{_JWT_SECRET_TAMANHO_MINIMO} caracteres"
+            )
+        return problemas
 
     def politica_retentativa(self) -> PoliticaRetentativa:
         return PoliticaRetentativa(
