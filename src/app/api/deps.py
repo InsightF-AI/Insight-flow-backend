@@ -20,6 +20,12 @@ from app.domain.entities.usuario import Usuario
 from app.integrations.bcb.client import BcbClient
 from app.integrations.binance.client import BinanceClient
 from app.integrations.brapi.client import BrapiClient
+from app.integrations.email.enviador import (
+    EnviadorBrevo,
+    EnviadorEmail,
+    EnviadorLog,
+    EnviadorSmtp,
+)
 from app.integrations.expo.fabrica import criar_expo_client
 from app.integrations.limitadores import limitador_compartilhado
 from app.integrations.web_push.fabrica import criar_web_push_client
@@ -82,6 +88,7 @@ from app.services.provento_service import ProventoService
 from app.services.redis_mercado_cache import RedisMercadoCache
 from app.services.refresh_token_service import RefreshTokenService
 from app.services.roteador_dados_mercado_service import RoteadorDadosMercadoService
+from app.services.senha_service import SenhaService
 from app.services.sinal_service import SinalService
 from app.services.usuario_service import UsuarioService
 from app.services.watchlist_service import WatchlistService
@@ -157,6 +164,45 @@ def get_refresh_token_service(
         access_expiracao_minutos=settings.jwt_expiration_minutes,
         refresh_expiracao_dias=settings.refresh_token_expiracao_dias,
     )
+
+
+def get_senha_service(
+    usuario_repository: UsuarioRepository = Depends(get_usuario_repository),
+    refresh_token_repository: RefreshTokenRepository = Depends(get_refresh_token_repository),
+    settings: Settings = Depends(get_settings),
+) -> SenhaService:
+    return SenhaService(
+        usuario_repository,
+        refresh_token_repository,
+        jwt_secret_key=settings.jwt_secret_key,
+        expiracao_minutos=settings.recuperacao_senha_expiracao_minutos,
+        url_redefinicao=settings.recuperacao_senha_url,
+    )
+
+
+@lru_cache
+def _brevo_http_client(base_url: str) -> httpx.Client:
+    return httpx.Client(base_url=base_url, timeout=10.0)
+
+
+def get_enviador_email(settings: Settings = Depends(get_settings)) -> EnviadorEmail:
+    if settings.brevo_api_key and settings.email_remetente:
+        return EnviadorBrevo(
+            _brevo_http_client(settings.brevo_base_url),
+            settings.brevo_api_key,
+            settings.email_remetente,
+            settings.email_remetente_nome,
+        )
+    if settings.smtp_host and settings.email_remetente:
+        return EnviadorSmtp(
+            settings.smtp_host,
+            settings.smtp_porta,
+            settings.smtp_usuario,
+            settings.smtp_senha,
+            settings.email_remetente,
+            settings.smtp_starttls,
+        )
+    return EnviadorLog(incluir_corpo=not settings.em_producao())
 
 
 def get_usuario_service(

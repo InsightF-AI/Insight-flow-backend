@@ -29,5 +29,10 @@ class FakeRefreshTokenRepository(RefreshTokenRepository):
             if token.familia_id == familia_id and not token.esta_revogado():
                 token.revogar(revogado_em)
 
+    def revogar_do_usuario(self, usuario_id: UUID, revogado_em: datetime) -> None:
+        for token in self._tokens.values():
+            if token.usuario_id == usuario_id and not token.esta_revogado():
+                token.revogar(revogado_em)
+
     def listar_todos(self) -> list[RefreshToken]:
         return list(self._tokens.values())
