@@ -29,6 +29,7 @@ from app.integrations.email.enviador import (
 from app.integrations.expo.fabrica import criar_expo_client
 from app.integrations.limitadores import limitador_compartilhado
 from app.integrations.web_push.fabrica import criar_web_push_client
+from app.integrations.yahoo.client import USER_AGENT, YahooFinanceClient
 from app.notifications.barramento import BarramentoNotificacoes
 from app.notifications.canais import montar_canais
 from app.notifications.redis_barramento import RedisBarramentoNotificacoes
@@ -83,6 +84,7 @@ from app.services.inscricao_web_push_service import InscricaoWebPushService
 from app.services.mercado_cache import MercadoCache
 from app.services.notificacao_service import NotificacaoService
 from app.services.portfolio_service import PortfolioService
+from app.services.provento_service import ProventoService
 from app.services.redis_mercado_cache import RedisMercadoCache
 from app.services.refresh_token_service import RefreshTokenService
 from app.services.roteador_dados_mercado_service import RoteadorDadosMercadoService
@@ -432,6 +434,39 @@ def get_portfolio_service(
         cambio_service,
         bcb_client,
         cotacao_repository,
+    )
+
+
+@lru_cache
+def _yahoo_http_client(base_url: str) -> httpx.Client:
+    return httpx.Client(base_url=base_url, timeout=10.0, headers={"User-Agent": USER_AGENT})
+
+
+def get_yahoo_client(settings: Settings = Depends(get_settings)) -> YahooFinanceClient:
+    return YahooFinanceClient(
+        _yahoo_http_client(settings.yahoo_base_url),
+        limitador=limitador_compartilhado(
+            "yahoo",
+            settings.yahoo_requisicoes_por_minuto,
+            settings.integracoes_espera_maxima_segundos,
+        ),
+        politica=settings.politica_retentativa(),
+    )
+
+
+def get_provento_service(
+    ativo_repository: AtivoRepository = Depends(get_ativo_repository),
+    operacao_repository: OperacaoRepository = Depends(get_operacao_repository),
+    yahoo_client: YahooFinanceClient = Depends(get_yahoo_client),
+    mercado_cache: MercadoCache = Depends(get_mercado_cache),
+    settings: Settings = Depends(get_settings),
+) -> ProventoService:
+    return ProventoService(
+        ativo_repository,
+        operacao_repository,
+        yahoo_client,
+        mercado_cache,
+        settings.cache_ttl_proventos_segundos,
     )
 
 
