@@ -159,3 +159,20 @@ def test_historico_do_usuario_nao_e_mutado():
     service.responder(usuario_id, mensagens)
 
     assert mensagens == _pergunta()
+
+
+def test_loop_preserva_o_estado_do_provedor_e_o_id_da_chamada():
+    service, usuario_id, provedor = _service()
+    estado = [{"type": "thinking", "thinking": "", "signature": "sig"}]
+    provedor.enfileirar(
+        RespostaLLM(
+            chamadas=(ChamadaFerramenta("obter_posicoes", {}, id="toolu_1"),), estado=estado
+        ),
+        "Pronto.",
+    )
+
+    service.responder(usuario_id, _pergunta())
+
+    historico = provedor.chamadas_conversar[1][1]
+    assert historico[1].estado is estado
+    assert historico[2].resultados[0].id == "toolu_1"

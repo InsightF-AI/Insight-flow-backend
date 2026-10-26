@@ -64,7 +64,19 @@ class Settings(BaseSettings):
     scheduler_intervalo_cripto_minutos: int = 5
 
     ai_habilitada: bool = False
-    ai_provider: str = "gemini"
+    ai_provider: str = "claude"
+    ai_intervalo_entre_chamadas_segundos: int = 0
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-haiku-5-5"
+    anthropic_esforco: str = "medium"
+    anthropic_timeout_segundos: int = 60
+    anthropic_max_tentativas: int = 2
+    openai_api_key: str = ""
+    openai_model: str = ""
+    openai_base_url: str = "https://api.openai.com"
+    ollama_model: str = ""
+    ollama_base_url: str = "http://localhost:11434"
+    openai_compativel_timeout_segundos: int = 60
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.5-flash"
     gemini_base_url: str = "https://generativelanguage.googleapis.com"
@@ -76,6 +88,22 @@ class Settings(BaseSettings):
     chat_max_mensagens: int = 20
     chat_max_caracteres_mensagem: int = 2000
     max_iteracoes_ferramentas: int = 4
+
+    def ai_configurada(self) -> bool:
+        if not self.ai_habilitada:
+            return False
+        credenciais = {
+            "claude": self.anthropic_api_key,
+            "gemini": self.gemini_api_key,
+            "openai": self.openai_api_key and self.openai_model,
+            "ollama": self.ollama_model,
+        }
+        return bool(credenciais.get(self.ai_provider))
+
+    def intervalo_entre_chamadas_ia(self) -> int:
+        if self.ai_provider == "gemini":
+            return self.gemini_intervalo_entre_chamadas_segundos
+        return self.ai_intervalo_entre_chamadas_segundos
 
     def web_push_configurado(self) -> bool:
         if not (

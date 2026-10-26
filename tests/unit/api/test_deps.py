@@ -82,15 +82,15 @@ def test_get_provedor_llm_sem_configuracao_lanca_503():
     assert exc_info.value.status_code == 503
 
 
-def test_get_provedor_llm_configurado_retorna_gemini():
-    from app.ai.providers.gemini import GeminiProvider
+def test_get_provedor_llm_configurado_retorna_claude():
+    from app.ai.providers.claude import ClaudeProvider
     from app.api.deps import get_provedor_llm
 
     provedor = get_provedor_llm(
-        Settings(_env_file=None, ai_habilitada=True, gemini_api_key="chave")
+        Settings(_env_file=None, ai_habilitada=True, anthropic_api_key="chave")
     )
 
-    assert isinstance(provedor, GeminiProvider)
+    assert isinstance(provedor, ClaudeProvider)
 
 
 def test_dados_mercado_service_envolve_o_roteador_no_cache():

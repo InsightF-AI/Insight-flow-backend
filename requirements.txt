@@ -10,6 +10,9 @@ pandas-ta
 # HTTP assíncrono (integrações externas)
 httpx
 
+# Provedor de IA padrao (Claude)
+anthropic>=2.3,<3
+
 # Agendamento de jobs
 apscheduler
 tzdata

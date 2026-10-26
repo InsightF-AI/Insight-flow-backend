@@ -1593,7 +1593,7 @@
   <span class="tok-key">"ativo_id"</span><span class="tok-punc">:</span> <span class="tok-str">"3fa8..."</span><span class="tok-punc">,</span>
   <span class="tok-key">"texto"</span><span class="tok-punc">:</span> <span class="tok-str">"PETR4 fechou em alta de 1,5%..."</span><span class="tok-punc">,</span>
   <span class="tok-key">"gerado_em"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-09-15T13:00:00Z"</span><span class="tok-punc">,</span>
-  <span class="tok-key">"modelo"</span><span class="tok-punc">:</span> <span class="tok-str">"gemini-3.5-flash"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"modelo"</span><span class="tok-punc">:</span> <span class="tok-str">"claude-haiku-5-5"</span><span class="tok-punc">,</span>
   <span class="tok-key">"em_cache"</span><span class="tok-punc">:</span> <span class="tok-bool">false</span><span class="tok-punc">,</span>
   <span class="tok-key">"desatualizada"</span><span class="tok-punc">:</span> <span class="tok-bool">false</span><span class="tok-punc">,</span>
   <span class="tok-key">"aviso_legal"</span><span class="tok-punc">:</span> <span class="tok-str">"Análise gerada por IA. Não constitui recomendação de investimento."</span>
@@ -1641,7 +1641,7 @@
               <div class="subhead">200 OK</div>
               <pre><code><span class="tok-punc">{</span>
   <span class="tok-key">"texto"</span><span class="tok-punc">:</span> <span class="tok-str">"O CDI rendeu 0,9%..."</span><span class="tok-punc">,</span>
-  <span class="tok-key">"modelo"</span><span class="tok-punc">:</span> <span class="tok-str">"gemini-3.5-flash"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"modelo"</span><span class="tok-punc">:</span> <span class="tok-str">"claude-haiku-5-5"</span><span class="tok-punc">,</span>
   <span class="tok-key">"aviso_legal"</span><span class="tok-punc">:</span> <span class="tok-str">"Análise gerada por IA..."</span>
 <span class="tok-punc">}</span></code></pre>
             </div>
@@ -2087,7 +2087,9 @@ docker compose up
         Sem <code>BRAPI_API_KEY</code>, cotação e histórico de renda variável só respondem para
         <code>PETR4</code>, <code>MGLU3</code>, <code>VALE3</code>, <code>ITUB4</code>. Cripto (Binance) funciona sem chave.
         A IA fica desligada por padrão (<code>AI_HABILITADA=false</code>) — as rotas de IA respondem 503 até alguém
-        configurar <code>GEMINI_API_KEY</code>. Para testar o web local, a origem precisa estar em <code>CORS_ORIGENS</code>.
+        configurar o provedor (<code>AI_PROVIDER</code>, padrão <code>claude</code> com <code>ANTHROPIC_API_KEY</code>;
+        também aceita <code>gemini</code>, <code>openai</code> e <code>ollama</code>). O campo <code>modelo</code> das respostas de IA
+        passa a vir como <code>claude-haiku-5-5</code>. Para testar o web local, a origem precisa estar em <code>CORS_ORIGENS</code>.
       </p>
     </section>
 

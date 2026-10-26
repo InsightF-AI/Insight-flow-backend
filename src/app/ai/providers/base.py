@@ -15,12 +15,14 @@ class ChamadaFerramenta:
     nome: str
     argumentos: dict
     assinatura: str | None = None
+    id: str | None = None
 
 
 @dataclass(frozen=True)
 class ResultadoFerramenta:
     nome: str
     conteudo: dict
+    id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -29,6 +31,7 @@ class MensagemChat:
     texto: str = ""
     chamadas: tuple[ChamadaFerramenta, ...] = field(default_factory=tuple)
     resultados: tuple[ResultadoFerramenta, ...] = field(default_factory=tuple)
+    estado: object | None = None
 
 
 @dataclass(frozen=True)
@@ -42,6 +45,7 @@ class DeclaracaoFerramenta:
 class RespostaLLM:
     texto: str = ""
     chamadas: tuple[ChamadaFerramenta, ...] = field(default_factory=tuple)
+    estado: object | None = None
 
 
 class ProvedorLLM(ABC):
