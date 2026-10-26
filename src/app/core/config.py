@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     brapi_base_url: str = "https://brapi.dev"
     brapi_api_key: str = ""
     binance_base_url: str = "https://api.binance.com"
+    yahoo_base_url: str = "https://query1.finance.yahoo.com"
+    yahoo_requisicoes_por_minuto: int = 60
     brapi_requisicoes_por_minuto: int = 60
     binance_requisicoes_por_minuto: int = 600
     integracoes_tentativas: int = 3
@@ -45,6 +47,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6381/0"
     cache_ttl_cotacao_atual_segundos: int = 60
     cache_ttl_historico_segundos: int = 86400
+    cache_ttl_proventos_segundos: int = 86400
     cache_ttl_catalogo_cripto_segundos: int = 86400
     ws_timeout_autenticacao_segundos: float = 10
     ws_intervalo_ping_segundos: float = 30

@@ -15,6 +15,7 @@ from app.api.deps import (
     get_operacao_repository,
     get_portfolio_service,
     get_provedor_llm,
+    get_provento_service,
     get_refresh_token_repository,
     get_sinal_repository,
     get_ticket_push_repository,
@@ -23,6 +24,7 @@ from app.api.deps import (
 )
 from app.main import app
 from app.services.portfolio_service import PortfolioService
+from app.services.provento_service import ProventoService
 from tests.fixtures.fake_analise_ia_repository import FakeAnaliseIARepository
 from tests.fixtures.fake_ativo_repository import FakeAtivoRepository
 from tests.fixtures.fake_barramento_notificacoes import FakeBarramentoNotificacoes
@@ -30,8 +32,10 @@ from tests.fixtures.fake_cambio_service import FakeCambioService
 from tests.fixtures.fake_cotacao_repository import FakeCotacaoRepository
 from tests.fixtures.fake_dados_mercado_service import FakeDadosMercadoService
 from tests.fixtures.fake_dispositivo_push_repository import FakeDispositivoPushRepository
+from tests.fixtures.fake_fonte_proventos import FakeFonteProventos
 from tests.fixtures.fake_indicador_tecnico_repository import FakeIndicadorTecnicoRepository
 from tests.fixtures.fake_inscricao_web_push_repository import FakeInscricaoWebPushRepository
+from tests.fixtures.fake_mercado_cache import FakeMercadoCache
 from tests.fixtures.fake_operacao_repository import FakeOperacaoRepository
 from tests.fixtures.fake_provedor_llm import FakeProvedorLLM
 from tests.fixtures.fake_refresh_token_repository import FakeRefreshTokenRepository
@@ -134,6 +138,11 @@ def inscricao_web_push_repository() -> FakeInscricaoWebPushRepository:
 
 
 @pytest.fixture
+def fonte_proventos() -> FakeFonteProventos:
+    return FakeFonteProventos()
+
+
+@pytest.fixture
 def client(
     usuario_repository: FakeUsuarioRepository,
     ativo_repository: FakeAtivoRepository,
@@ -150,6 +159,7 @@ def client(
     dispositivo_push_repository: FakeDispositivoPushRepository,
     ticket_push_repository: FakeTicketPushRepository,
     inscricao_web_push_repository: FakeInscricaoWebPushRepository,
+    fonte_proventos: FakeFonteProventos,
 ) -> TestClient:
     app.dependency_overrides[get_usuario_repository] = lambda: usuario_repository
     app.dependency_overrides[get_ativo_repository] = lambda: ativo_repository
@@ -166,6 +176,9 @@ def client(
         FakeCambioService(taxa=Decimal(1)),
         None,
         cotacao_repository,
+    )
+    app.dependency_overrides[get_provento_service] = lambda: ProventoService(
+        ativo_repository, operacao_repository, fonte_proventos, FakeMercadoCache(), 86400
     )
     app.dependency_overrides[get_provedor_llm] = lambda: provedor_llm
     app.dependency_overrides[get_analise_ia_repository] = lambda: analise_repository
