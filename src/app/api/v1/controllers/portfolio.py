@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.deps import get_portfolio_service, get_usuario_atual
+from app.api.deps import get_portfolio_service, get_provento_service, get_usuario_atual
 from app.api.v1.schemas.portfolio import (
     ComparativoResponse,
     DistribuicaoResponse,
@@ -11,8 +11,10 @@ from app.api.v1.schemas.portfolio import (
     RegistrarOperacaoRequest,
     RentabilidadeResponse,
 )
+from app.api.v1.schemas.provento import ResumoProventosResponse
 from app.domain.entities.usuario import Usuario
 from app.domain.enums.tipo_benchmark import TipoBenchmark
+from app.integrations.erros import FonteDadosIndisponivelError
 from app.services.exceptions import (
     AtivoNaoEncontradoError,
     OperacaoInvalidaError,
@@ -21,6 +23,7 @@ from app.services.exceptions import (
     QuantidadeInsuficienteError,
 )
 from app.services.portfolio_service import PortfolioService
+from app.services.provento_service import ProventoService
 
 router = APIRouter(tags=["portfolio"])
 
@@ -106,3 +109,18 @@ def distribuicao(
     service: PortfolioService = Depends(get_portfolio_service),
 ) -> DistribuicaoResponse:
     return DistribuicaoResponse.de(service.distribuicao(usuario.id))
+
+
+@router.get("/portfolio/dividendos", response_model=ResumoProventosResponse)
+def dividendos_recebidos(
+    usuario: Usuario = Depends(get_usuario_atual),
+    service: ProventoService = Depends(get_provento_service),
+) -> ResumoProventosResponse:
+    try:
+        resumo = service.recebidos(usuario.id)
+    except FonteDadosIndisponivelError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Fonte de dados de proventos indisponivel"
+        ) from exc
+
+    return ResumoProventosResponse.de(resumo)

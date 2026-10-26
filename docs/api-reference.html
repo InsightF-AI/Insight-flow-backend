@@ -551,6 +551,7 @@
       <a href="#ep-indicadores"><span class="m get">GET</span>.../indicadores</a>
       <a href="#ep-sinais"><span class="m get">GET</span>.../sinais</a>
       <a href="#ep-backtest"><span class="m get">GET</span>.../backtest</a>
+      <a href="#ep-dividendos"><span class="m get">GET</span>.../dividendos</a>
     </div>
     <div class="toc-group">
       <div class="toc-group-title">Watchlist</div>
@@ -575,6 +576,7 @@
       <a href="#ep-pf-rent"><span class="m get">GET</span>.../rentabilidade</a>
       <a href="#ep-pf-bench"><span class="m get">GET</span>.../benchmark</a>
       <a href="#ep-pf-dist"><span class="m get">GET</span>.../distribuicao</a>
+      <a href="#ep-pf-div"><span class="m get">GET</span>/portfolio/dividendos</a>
     </div>
     <div class="toc-group">
       <div class="toc-group-title">IA</div>
@@ -1132,6 +1134,38 @@
           </table>
         </div>
       </article>
+
+      <article class="endpoint" id="ep-dividendos">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/ativos/<span class="param">{ativo_id}</span>/dividendos</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Histórico de proventos (dividendos, JCP, rendimentos de FII) do ativo, do mais recente para o mais antigo.</p>
+          <table class="params">
+            <tr><th>Param</th><th>Tipo</th><th>Descrição</th></tr>
+            <tr><td class="pname">ativo_id</td><td class="ptype">uuid (path)</td><td>id interno do ativo</td></tr>
+          </table>
+          <div class="subhead">200 OK</div>
+          <pre><code><span class="tok-punc">[</span>
+<span class="tok-punc">{</span>
+  <span class="tok-key">"data_ex"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-08-24"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"valor_por_cota"</span><span class="tok-punc">:</span> <span class="tok-str">"0.47156696"</span>
+<span class="tok-punc">}</span>
+<span class="tok-punc">]</span></code></pre>
+          <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
+            Fonte: Yahoo Finance (últimos 5 anos), valores <b>brutos</b> por cota em BRL, datados pela
+            <b>data ex</b> (sem data de pagamento e sem separar dividendo/JCP/rendimento). Cripto e índices
+            sempre retornam lista vazia. Cache de 24h.
+          </p>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Ativo nao encontrado"</td></tr>
+            <tr><td class="status s5">503</td><td>"Fonte de dados de proventos indisponivel"</td></tr>
+          </table>
+        </div>
+      </article>
     </section>
 
     <section id="watchlist-section">
@@ -1561,6 +1595,40 @@
   <span class="tok-key">"por_setor"</span><span class="tok-punc">:</span> <span class="tok-punc">{</span> <span class="tok-key">"Petróleo, Gás e Biocombustíveis"</span><span class="tok-punc">:</span> <span class="tok-str">"0.7"</span><span class="tok-punc">,</span> <span class="tok-key">"N/A"</span><span class="tok-punc">:</span> <span class="tok-str">"0.3"</span> <span class="tok-punc">}</span><span class="tok-punc">,</span>
   <span class="tok-key">"por_moeda"</span><span class="tok-punc">:</span> <span class="tok-punc">{</span> <span class="tok-key">"BRL"</span><span class="tok-punc">:</span> <span class="tok-str">"1"</span> <span class="tok-punc">}</span>
 <span class="tok-punc">}</span></code></pre>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-pf-div">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/portfolio/dividendos</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Proventos recebidos pela carteira simulada (campo <code>dividendos_recebidos</code> da ERS). A quantidade de cada provento é a posição na véspera da data ex.</p>
+          <div class="subhead">200 OK</div>
+          <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"total_brl"</span><span class="tok-punc">:</span> <span class="tok-str">"67.00"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"proventos"</span><span class="tok-punc">:</span> <span class="tok-punc">[</span>
+  <span class="tok-punc">{</span>
+    <span class="tok-key">"ativo_id"</span><span class="tok-punc">:</span> <span class="tok-str">"3fa8..."</span><span class="tok-punc">,</span>
+    <span class="tok-key">"ticker"</span><span class="tok-punc">:</span> <span class="tok-str">"PETR4"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"data_ex"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-08-24"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"valor_por_cota"</span><span class="tok-punc">:</span> <span class="tok-str">"0.20"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"quantidade"</span><span class="tok-punc">:</span> <span class="tok-str">"60"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"total_brl"</span><span class="tok-punc">:</span> <span class="tok-str">"12.00"</span>
+  <span class="tok-punc">}</span>
+  <span class="tok-punc">]</span>
+<span class="tok-punc">}</span></code></pre>
+          <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
+            Fonte: Yahoo Finance (últimos 5 anos), valores <b>brutos</b> por cota em BRL, datados pela
+            <b>data ex</b> (sem data de pagamento e sem separar dividendo/JCP/rendimento). Cripto e índices
+            sempre retornam lista vazia. Cache de 24h.
+          </p>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s5">503</td><td>"Fonte de dados de proventos indisponivel"</td></tr>
+          </table>
         </div>
       </article>
     </section>
