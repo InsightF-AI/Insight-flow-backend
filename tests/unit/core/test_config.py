@@ -13,7 +13,11 @@ def test_settings_ia_vem_desabilitada_por_padrao():
     settings = Settings(_env_file=None)
 
     assert settings.ai_habilitada is False
-    assert settings.ai_provider == "gemini"
+    assert settings.ai_provider == "claude"
+    assert settings.anthropic_api_key == ""
+    assert settings.anthropic_model == "claude-haiku-5-5"
+    assert settings.anthropic_esforco == "medium"
+    assert settings.ai_intervalo_entre_chamadas_segundos == 0
     assert settings.gemini_api_key == ""
     assert settings.gemini_model == "gemini-3.5-flash"
     assert settings.gemini_base_url == "https://generativelanguage.googleapis.com"
@@ -154,3 +158,25 @@ def test_web_push_configurado_exige_contato_mailto_ou_https():
     assert configurado("https://insightflow.app/contato")
     assert not configurado("equipe@exemplo.com")
     assert not configurado("http://insightflow.app")
+
+
+def test_ai_configurada_exige_credencial_do_provedor_escolhido():
+    base = {"_env_file": None, "ai_habilitada": True}
+
+    assert Settings(**base, anthropic_api_key="k").ai_configurada() is True
+    assert Settings(**base, gemini_api_key="k").ai_configurada() is False
+    assert Settings(**base, ai_provider="gemini", gemini_api_key="k").ai_configurada() is True
+    assert Settings(**base, ai_provider="openai", openai_api_key="k").ai_configurada() is False
+    assert (
+        Settings(
+            **base, ai_provider="openai", openai_api_key="k", openai_model="m"
+        ).ai_configurada()
+        is True
+    )
+    assert Settings(**base, ai_provider="ollama", ollama_model="llama").ai_configurada() is True
+    assert Settings(_env_file=None, anthropic_api_key="k").ai_configurada() is False
+
+
+def test_intervalo_entre_chamadas_ia_mantem_o_do_gemini():
+    assert Settings(_env_file=None, ai_provider="gemini").intervalo_entre_chamadas_ia() == 6
+    assert Settings(_env_file=None).intervalo_entre_chamadas_ia() == 0

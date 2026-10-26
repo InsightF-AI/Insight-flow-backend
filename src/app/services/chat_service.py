@@ -42,7 +42,11 @@ class ChatService:
             if not resposta.chamadas:
                 return resposta.texto
             historico.append(
-                MensagemChat(papel=PapelMensagem.ASSISTENTE, chamadas=resposta.chamadas)
+                MensagemChat(
+                    papel=PapelMensagem.ASSISTENTE,
+                    chamadas=resposta.chamadas,
+                    estado=resposta.estado,
+                )
             )
             resultados = tuple(
                 self._executor.executar(usuario_id, chamada) for chamada in resposta.chamadas
