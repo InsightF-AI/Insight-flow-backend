@@ -116,7 +116,7 @@ def sinais(
     for sinal in vigentes:
         regra = buscar_regra_por_id(sinal.regra_id)
         if regra is not None:
-            respostas.append(SinalResponse.de(sinal, regra))
+            respostas.append(SinalResponse.de(sinal, regra, service.backtest(regra.id, ativo_id)))
     return respostas
 
 

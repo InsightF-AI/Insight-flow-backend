@@ -246,13 +246,13 @@ def test_score_composto_sem_sinais_vigentes_retorna_zero():
     assert service.score_composto(_ATIVO.id) == Decimal(0)
 
 
-def _cotacoes_backtest_rsi(ativo_id) -> list[Cotacao]:
+def _cotacoes_backtest_rsi(ativo_id, base: datetime | None = None) -> list[Cotacao]:
     precos = (
         [20.0] * 30
         + [20 - i * 1.0 for i in range(1, 11)]
         + [10 + i * 0.5 for i in range(1, 21)]
     )
-    base = datetime.now(UTC) - timedelta(days=len(precos) - 1)
+    base = base or datetime.now(UTC) - timedelta(days=len(precos) - 1)
     return [
         Cotacao(
             id=uuid4(),
@@ -283,6 +283,24 @@ def test_backtest_encontra_ocorrencia_e_calcula_retornos_medios():
     assert round(resultado.retorno_medio_5_pregoes, 2) == Decimal("-26.32")
     assert round(resultado.retorno_medio_20_pregoes, 2) == Decimal("-18.42")
     assert resultado.retorno_medio_60_pregoes is None
+
+
+@pytest.mark.parametrize(
+    ("dias_antes_do_corte", "ocorrencias_esperadas"), [(25.5, 1), (35.5, 0)]
+)
+def test_backtest_so_conta_ativacoes_dentro_da_janela_de_24_meses(
+    dias_antes_do_corte, ocorrencias_esperadas
+):
+    ativo_repository = FakeAtivoRepository()
+    ativo_repository.salvar(_ATIVO)
+    cotacao_repository = FakeCotacaoRepository()
+    base = datetime.now(UTC) - timedelta(days=730 + dias_antes_do_corte)
+    cotacao_repository.salvar_muitas(_cotacoes_backtest_rsi(_ATIVO.id, base))
+    service = _service(ativo_repository, cotacao_repository)
+
+    resultado = service.backtest(_REGRA_SOBREVENDA_RSI.id, _ATIVO.id)
+
+    assert resultado.total_ocorrencias == ocorrencias_esperadas
 
 
 def test_backtest_sem_ocorrencias_retorna_zero_e_janelas_nulas():

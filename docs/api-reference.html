@@ -1086,12 +1086,21 @@
     <span class="tok-key">"regra_descricao"</span><span class="tok-punc">:</span> <span class="tok-str">"RSI(14) abaixo de 30..."</span><span class="tok-punc">,</span>
     <span class="tok-key">"data_ativacao"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-09-15T13:00:00Z"</span><span class="tok-punc">,</span>
     <span class="tok-key">"contexto"</span><span class="tok-punc">:</span> <span class="tok-punc">{</span> <span class="tok-key">"valor"</span><span class="tok-punc">:</span> <span class="tok-str">"28.4"</span> <span class="tok-punc">}</span><span class="tok-punc">,</span>
-    <span class="tok-key">"data_desativacao"</span><span class="tok-punc">:</span> <span class="tok-bool">null</span>
+    <span class="tok-key">"data_desativacao"</span><span class="tok-punc">:</span> <span class="tok-bool">null</span><span class="tok-punc">,</span>
+    <span class="tok-key">"backtest"</span><span class="tok-punc">:</span> <span class="tok-punc">{</span>
+      <span class="tok-key">"regra_id"</span><span class="tok-punc">:</span> <span class="tok-str">"a1a1a1a1-0000-0000-0000-000000000001"</span><span class="tok-punc">,</span>
+      <span class="tok-key">"ativo_id"</span><span class="tok-punc">:</span> <span class="tok-str">"3fa8..."</span><span class="tok-punc">,</span>
+      <span class="tok-key">"total_ocorrencias"</span><span class="tok-punc">:</span> <span class="tok-num">14</span><span class="tok-punc">,</span>
+      <span class="tok-key">"retorno_medio_5_pregoes"</span><span class="tok-punc">:</span> <span class="tok-str">"1.8"</span><span class="tok-punc">,</span>
+      <span class="tok-key">"retorno_medio_20_pregoes"</span><span class="tok-punc">:</span> <span class="tok-str">"3.2"</span><span class="tok-punc">,</span>
+      <span class="tok-key">"retorno_medio_60_pregoes"</span><span class="tok-punc">:</span> <span class="tok-bool">null</span>
+    <span class="tok-punc">}</span>
   <span class="tok-punc">}</span>
 <span class="tok-punc">]</span></code></pre>
           <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
             <code>contexto.valor</code> é o valor do indicador no momento da ativação (string decimal). Só sinais vigentes são
-            retornados, então <code>data_desativacao</code> vem sempre <code>null</code> aqui.
+            retornados, então <code>data_desativacao</code> vem sempre <code>null</code> aqui. Cada sinal já traz o
+            <code>backtest</code> da regra (RF-08), no mesmo formato de <a href="#ep-backtest">/backtest</a>.
           </p>
           <div class="subhead">Erros</div>
           <table class="errors">
