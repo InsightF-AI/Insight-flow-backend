@@ -211,7 +211,7 @@
 
   .toc .m.get { color: var(--get); }
   .toc .m.post { color: var(--post); }
-  .toc .m.patch { color: var(--patch); }
+  .toc .m.patch, .toc .m.put { color: var(--patch); }
   .toc .m.delete { color: var(--delete); }
 
   /* ---------- Main content ---------- */
@@ -274,7 +274,7 @@
 
   .method.get { background: var(--get-soft); color: var(--get); }
   .method.post { background: var(--post-soft); color: var(--post); }
-  .method.patch { background: var(--patch-soft); color: var(--patch); }
+  .method.patch, .method.put { background: var(--patch-soft); color: var(--patch); }
   .method.delete { background: var(--delete-soft); color: var(--delete); }
 
   .endpoint-path {
@@ -542,6 +542,9 @@
       <a href="#ep-login"><span class="m post">POST</span>/auth/login</a>
       <a href="#ep-refresh"><span class="m post">POST</span>/auth/refresh</a>
       <a href="#ep-logout"><span class="m post">POST</span>/auth/logout</a>
+      <a href="#ep-senha-alterar"><span class="m put">PUT</span>/usuarios/me/senha</a>
+      <a href="#ep-senha-recuperar"><span class="m post">POST</span>/auth/recuperar-senha</a>
+      <a href="#ep-senha-redefinir"><span class="m post">POST</span>/auth/redefinir-senha</a>
     </div>
     <div class="toc-group">
       <div class="toc-group-title">Ativos</div>
@@ -551,6 +554,7 @@
       <a href="#ep-indicadores"><span class="m get">GET</span>.../indicadores</a>
       <a href="#ep-sinais"><span class="m get">GET</span>.../sinais</a>
       <a href="#ep-backtest"><span class="m get">GET</span>.../backtest</a>
+      <a href="#ep-dividendos"><span class="m get">GET</span>.../dividendos</a>
     </div>
     <div class="toc-group">
       <div class="toc-group-title">Watchlist</div>
@@ -575,6 +579,7 @@
       <a href="#ep-pf-rent"><span class="m get">GET</span>.../rentabilidade</a>
       <a href="#ep-pf-bench"><span class="m get">GET</span>.../benchmark</a>
       <a href="#ep-pf-dist"><span class="m get">GET</span>.../distribuicao</a>
+      <a href="#ep-pf-div"><span class="m get">GET</span>/portfolio/dividendos</a>
     </div>
     <div class="toc-group">
       <div class="toc-group-title">IA</div>
@@ -884,6 +889,90 @@
           </div>
         </div>
       </article>
+
+      <article class="endpoint" id="ep-senha-alterar">
+        <div class="endpoint-head">
+          <span class="method put">PUT</span>
+          <span class="endpoint-path">/api/v1/usuarios/me/senha</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Troca a senha do usuário logado. Revoga <b>todos</b> os refresh tokens dele (todos os dispositivos saem; o access token atual vale até expirar). <code>nova_senha</code> tem 8 a 128 caracteres.
+          </p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"senha_atual"</span><span class="tok-punc">:</span> <span class="tok-str">"segredo123"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"nova_senha"</span><span class="tok-punc">:</span> <span class="tok-str">"novasenha456"</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+            <div>
+              <div class="subhead">204 No Content</div>
+            </div>
+          </div>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">400</td><td>"Senha atual incorreta"</td></tr>
+            <tr><td class="status s4">422</td><td>nova_senha fora do tamanho</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-senha-recuperar">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/v1/auth/recuperar-senha</span>
+          <span class="auth-flag">🔓 público</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Envia por e-mail um link de redefinição (válido por 30 min) no formato <code>RECUPERACAO_SENHA_URL + token</code>. Responde <b>sempre</b> 202, mesmo para e-mail não cadastrado (não revela quem tem conta). A tela de destino do link é do client: ela lê o <code>token</code> da URL e chama <code>/auth/redefinir-senha</code>.
+          </p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"email"</span><span class="tok-punc">:</span> <span class="tok-str">"ana@example.com"</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+            <div>
+              <div class="subhead">202 Accepted</div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-senha-redefinir">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/v1/auth/redefinir-senha</span>
+          <span class="auth-flag">🔓 público</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Define a nova senha a partir do token do e-mail. O token vale uma única vez (deixa de valer assim que a senha muda) e também revoga todas as sessões. Depois disso o client manda o usuário para o login.
+          </p>
+          <div class="grid-2">
+            <div>
+              <div class="subhead">Body</div>
+              <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"token"</span><span class="tok-punc">:</span> <span class="tok-str">"eyJhbGciOi..."</span><span class="tok-punc">,</span>
+  <span class="tok-key">"nova_senha"</span><span class="tok-punc">:</span> <span class="tok-str">"novasenha456"</span>
+<span class="tok-punc">}</span></code></pre>
+            </div>
+            <div>
+              <div class="subhead">204 No Content</div>
+            </div>
+          </div>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">400</td><td>"Token de redefinicao invalido" (expirado, já usado ou adulterado)</td></tr>
+            <tr><td class="status s4">422</td><td>nova_senha fora do tamanho</td></tr>
+          </table>
+        </div>
+      </article>
     </section>
 
     <section id="ativos-section">
@@ -1086,12 +1175,21 @@
     <span class="tok-key">"regra_descricao"</span><span class="tok-punc">:</span> <span class="tok-str">"RSI(14) abaixo de 30..."</span><span class="tok-punc">,</span>
     <span class="tok-key">"data_ativacao"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-09-15T13:00:00Z"</span><span class="tok-punc">,</span>
     <span class="tok-key">"contexto"</span><span class="tok-punc">:</span> <span class="tok-punc">{</span> <span class="tok-key">"valor"</span><span class="tok-punc">:</span> <span class="tok-str">"28.4"</span> <span class="tok-punc">}</span><span class="tok-punc">,</span>
-    <span class="tok-key">"data_desativacao"</span><span class="tok-punc">:</span> <span class="tok-bool">null</span>
+    <span class="tok-key">"data_desativacao"</span><span class="tok-punc">:</span> <span class="tok-bool">null</span><span class="tok-punc">,</span>
+    <span class="tok-key">"backtest"</span><span class="tok-punc">:</span> <span class="tok-punc">{</span>
+      <span class="tok-key">"regra_id"</span><span class="tok-punc">:</span> <span class="tok-str">"a1a1a1a1-0000-0000-0000-000000000001"</span><span class="tok-punc">,</span>
+      <span class="tok-key">"ativo_id"</span><span class="tok-punc">:</span> <span class="tok-str">"3fa8..."</span><span class="tok-punc">,</span>
+      <span class="tok-key">"total_ocorrencias"</span><span class="tok-punc">:</span> <span class="tok-num">14</span><span class="tok-punc">,</span>
+      <span class="tok-key">"retorno_medio_5_pregoes"</span><span class="tok-punc">:</span> <span class="tok-str">"1.8"</span><span class="tok-punc">,</span>
+      <span class="tok-key">"retorno_medio_20_pregoes"</span><span class="tok-punc">:</span> <span class="tok-str">"3.2"</span><span class="tok-punc">,</span>
+      <span class="tok-key">"retorno_medio_60_pregoes"</span><span class="tok-punc">:</span> <span class="tok-bool">null</span>
+    <span class="tok-punc">}</span>
   <span class="tok-punc">}</span>
 <span class="tok-punc">]</span></code></pre>
           <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
             <code>contexto.valor</code> é o valor do indicador no momento da ativação (string decimal). Só sinais vigentes são
-            retornados, então <code>data_desativacao</code> vem sempre <code>null</code> aqui.
+            retornados, então <code>data_desativacao</code> vem sempre <code>null</code> aqui. Cada sinal já traz o
+            <code>backtest</code> da regra (RF-08), no mesmo formato de <a href="#ep-backtest">/backtest</a>.
           </p>
           <div class="subhead">Erros</div>
           <table class="errors">
@@ -1129,6 +1227,38 @@
           <div class="subhead">Erros</div>
           <table class="errors">
             <tr><td class="status s4">404</td><td>"Ativo nao encontrado" ou "Regra nao encontrada"</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-dividendos">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/ativos/<span class="param">{ativo_id}</span>/dividendos</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Histórico de proventos (dividendos, JCP, rendimentos de FII) do ativo, do mais recente para o mais antigo.</p>
+          <table class="params">
+            <tr><th>Param</th><th>Tipo</th><th>Descrição</th></tr>
+            <tr><td class="pname">ativo_id</td><td class="ptype">uuid (path)</td><td>id interno do ativo</td></tr>
+          </table>
+          <div class="subhead">200 OK</div>
+          <pre><code><span class="tok-punc">[</span>
+<span class="tok-punc">{</span>
+  <span class="tok-key">"data_ex"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-08-24"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"valor_por_cota"</span><span class="tok-punc">:</span> <span class="tok-str">"0.47156696"</span>
+<span class="tok-punc">}</span>
+<span class="tok-punc">]</span></code></pre>
+          <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
+            Fonte: Yahoo Finance (últimos 5 anos), valores <b>brutos</b> por cota em BRL, datados pela
+            <b>data ex</b> (sem data de pagamento e sem separar dividendo/JCP/rendimento). Cripto e índices
+            sempre retornam lista vazia. Cache de 24h.
+          </p>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">404</td><td>"Ativo nao encontrado"</td></tr>
+            <tr><td class="status s5">503</td><td>"Fonte de dados de proventos indisponivel"</td></tr>
           </table>
         </div>
       </article>
@@ -1563,6 +1693,40 @@
 <span class="tok-punc">}</span></code></pre>
         </div>
       </article>
+
+      <article class="endpoint" id="ep-pf-div">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/portfolio/dividendos</span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">Proventos recebidos pela carteira simulada (campo <code>dividendos_recebidos</code> da ERS). A quantidade de cada provento é a posição na véspera da data ex.</p>
+          <div class="subhead">200 OK</div>
+          <pre><code><span class="tok-punc">{</span>
+  <span class="tok-key">"total_brl"</span><span class="tok-punc">:</span> <span class="tok-str">"67.00"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"proventos"</span><span class="tok-punc">:</span> <span class="tok-punc">[</span>
+  <span class="tok-punc">{</span>
+    <span class="tok-key">"ativo_id"</span><span class="tok-punc">:</span> <span class="tok-str">"3fa8..."</span><span class="tok-punc">,</span>
+    <span class="tok-key">"ticker"</span><span class="tok-punc">:</span> <span class="tok-str">"PETR4"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"data_ex"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-08-24"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"valor_por_cota"</span><span class="tok-punc">:</span> <span class="tok-str">"0.20"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"quantidade"</span><span class="tok-punc">:</span> <span class="tok-str">"60"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"total_brl"</span><span class="tok-punc">:</span> <span class="tok-str">"12.00"</span>
+  <span class="tok-punc">}</span>
+  <span class="tok-punc">]</span>
+<span class="tok-punc">}</span></code></pre>
+          <p style="max-width:none; color:var(--ink-muted); font-size:13px; margin-top:8px;">
+            Fonte: Yahoo Finance (últimos 5 anos), valores <b>brutos</b> por cota em BRL, datados pela
+            <b>data ex</b> (sem data de pagamento e sem separar dividendo/JCP/rendimento). Cripto e índices
+            sempre retornam lista vazia. Cache de 24h.
+          </p>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s5">503</td><td>"Fonte de dados de proventos indisponivel"</td></tr>
+          </table>
+        </div>
+      </article>
     </section>
 
     <section id="ia-section">
@@ -1593,7 +1757,7 @@
   <span class="tok-key">"ativo_id"</span><span class="tok-punc">:</span> <span class="tok-str">"3fa8..."</span><span class="tok-punc">,</span>
   <span class="tok-key">"texto"</span><span class="tok-punc">:</span> <span class="tok-str">"PETR4 fechou em alta de 1,5%..."</span><span class="tok-punc">,</span>
   <span class="tok-key">"gerado_em"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-09-15T13:00:00Z"</span><span class="tok-punc">,</span>
-  <span class="tok-key">"modelo"</span><span class="tok-punc">:</span> <span class="tok-str">"gemini-3.5-flash"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"modelo"</span><span class="tok-punc">:</span> <span class="tok-str">"claude-haiku-5-5"</span><span class="tok-punc">,</span>
   <span class="tok-key">"em_cache"</span><span class="tok-punc">:</span> <span class="tok-bool">false</span><span class="tok-punc">,</span>
   <span class="tok-key">"desatualizada"</span><span class="tok-punc">:</span> <span class="tok-bool">false</span><span class="tok-punc">,</span>
   <span class="tok-key">"aviso_legal"</span><span class="tok-punc">:</span> <span class="tok-str">"Análise gerada por IA. Não constitui recomendação de investimento."</span>
@@ -1641,7 +1805,7 @@
               <div class="subhead">200 OK</div>
               <pre><code><span class="tok-punc">{</span>
   <span class="tok-key">"texto"</span><span class="tok-punc">:</span> <span class="tok-str">"O CDI rendeu 0,9%..."</span><span class="tok-punc">,</span>
-  <span class="tok-key">"modelo"</span><span class="tok-punc">:</span> <span class="tok-str">"gemini-3.5-flash"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"modelo"</span><span class="tok-punc">:</span> <span class="tok-str">"claude-haiku-5-5"</span><span class="tok-punc">,</span>
   <span class="tok-key">"aviso_legal"</span><span class="tok-punc">:</span> <span class="tok-str">"Análise gerada por IA..."</span>
 <span class="tok-punc">}</span></code></pre>
             </div>
@@ -2087,7 +2251,9 @@ docker compose up
         Sem <code>BRAPI_API_KEY</code>, cotação e histórico de renda variável só respondem para
         <code>PETR4</code>, <code>MGLU3</code>, <code>VALE3</code>, <code>ITUB4</code>. Cripto (Binance) funciona sem chave.
         A IA fica desligada por padrão (<code>AI_HABILITADA=false</code>) — as rotas de IA respondem 503 até alguém
-        configurar <code>GEMINI_API_KEY</code>. Para testar o web local, a origem precisa estar em <code>CORS_ORIGENS</code>.
+        configurar o provedor (<code>AI_PROVIDER</code>, padrão <code>claude</code> com <code>ANTHROPIC_API_KEY</code>;
+        também aceita <code>gemini</code>, <code>openai</code> e <code>ollama</code>). O campo <code>modelo</code> das respostas de IA
+        passa a vir como <code>claude-haiku-5-5</code>. Para testar o web local, a origem precisa estar em <code>CORS_ORIGENS</code>.
       </p>
     </section>
 

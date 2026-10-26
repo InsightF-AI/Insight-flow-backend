@@ -124,9 +124,13 @@ class SinalService:
         }[TipoIndicador(regra.condicoes["tipo_indicador"])]
         parametros = regra.condicoes["parametros"]
 
+        primeiro_no_periodo = next(
+            (i for i, cotacao in enumerate(cotacoes) if cotacao.data_hora >= corte), len(cotacoes)
+        )
         ocorrencias: list[int] = []
         satisfeita_anterior = False
-        for i, cotacao in enumerate(cotacoes):
+        for i in range(max(primeiro_no_periodo - 1, 0), len(cotacoes)):
+            cotacao = cotacoes[i]
             indicador = metodo_calculo(cotacoes[: i + 1], **parametros)
             satisfeita = indicador is not None and avaliar_condicao(
                 regra.condicoes, indicador.valor

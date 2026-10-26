@@ -8,6 +8,7 @@ from app.domain.entities.cotacao import Cotacao
 from app.domain.entities.sinal import Sinal
 from app.domain.enums.tipo_ativo import TipoAtivo
 from app.domain.regras_sinal_padrao import REGRAS_PADRAO
+from app.domain.value_objects.resultado_backtest import ResultadoBacktest
 from app.main import app
 
 _PETR4 = Ativo(
@@ -59,6 +60,10 @@ def test_sinais_avalia_e_retorna_sinais_vigentes(client, auth_headers, ativo_rep
     corpo = resposta.json()
     nomes = {item["regra_nome"] for item in corpo}
     assert "Sobrevenda RSI" in nomes
+    sobrevenda = next(item for item in corpo if item["regra_nome"] == "Sobrevenda RSI")
+    assert sobrevenda["backtest"]["regra_id"] == sobrevenda["regra_id"]
+    assert sobrevenda["backtest"]["ativo_id"] == str(_PETR4.id)
+    assert sobrevenda["backtest"]["total_ocorrencias"] >= 1
 
 
 class _ServicoComSinalOrfao:
@@ -67,6 +72,9 @@ class _ServicoComSinalOrfao:
 
     def avaliar_ativo(self, ativo_id):
         return self._sinais
+
+    def backtest(self, regra_id, ativo_id):
+        return ResultadoBacktest(regra_id, ativo_id, 0, None, None, None)
 
 
 def test_sinais_ignora_sinal_com_regra_removida(client, auth_headers, ativo_repository):

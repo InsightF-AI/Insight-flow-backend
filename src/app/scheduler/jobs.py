@@ -98,7 +98,7 @@ def registrar_jobs(scheduler: BackgroundScheduler, settings: Settings) -> None:
             minutes=settings.expo_recibos_intervalo_minutos,
             id="recibos_push",
         )
-    if settings.ai_habilitada and settings.gemini_api_key and settings.ai_provider == "gemini":
+    if settings.ai_configurada():
         scheduler.add_job(
             lambda: executar_job("resumo_diario", lambda: _executar_resumos_diarios(settings)),
             "cron",
@@ -304,7 +304,7 @@ def _executar_resumos_diarios(settings: Settings) -> None:
         gerar_resumos_diarios(
             operacao_repository,
             resumo_service,
-            settings.gemini_intervalo_entre_chamadas_segundos,
+            settings.intervalo_entre_chamadas_ia(),
             ao_falhar_usuario=session.rollback,
         )
     finally:

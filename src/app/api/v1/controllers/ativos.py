@@ -6,12 +6,14 @@ from app.api.deps import (
     get_ativo_service,
     get_dados_mercado_service,
     get_indicador_service,
+    get_provento_service,
     get_sinal_service,
     get_usuario_atual,
 )
 from app.api.v1.schemas.ativo import AtivoEncontradoResponse
 from app.api.v1.schemas.cotacao import CotacaoAtualResponse, PontoHistoricoResponse
 from app.api.v1.schemas.indicador import IndicadorTecnicoResponse
+from app.api.v1.schemas.provento import ProventoResponse
 from app.api.v1.schemas.sinal import ResultadoBacktestResponse, SinalResponse
 from app.domain.entities.usuario import Usuario
 from app.domain.enums.periodo_historico import PeriodoHistorico
@@ -21,6 +23,7 @@ from app.services.ativo_service import AtivoService
 from app.services.dados_mercado_service import DadosMercadoService
 from app.services.exceptions import AtivoNaoEncontradoError, RegraNaoEncontradaError
 from app.services.indicador_service import IndicadorService
+from app.services.provento_service import ProventoService
 from app.services.sinal_service import SinalService
 
 router = APIRouter(prefix="/ativos", tags=["ativos"])
@@ -116,7 +119,7 @@ def sinais(
     for sinal in vigentes:
         regra = buscar_regra_por_id(sinal.regra_id)
         if regra is not None:
-            respostas.append(SinalResponse.de(sinal, regra))
+            respostas.append(SinalResponse.de(sinal, regra, service.backtest(regra.id, ativo_id)))
     return respostas
 
 
@@ -135,3 +138,21 @@ def sinal_backtest(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Regra nao encontrada") from exc
 
     return ResultadoBacktestResponse.de(resultado)
+
+
+@router.get("/{ativo_id}/dividendos", response_model=list[ProventoResponse])
+def dividendos(
+    ativo_id: UUID,
+    usuario: Usuario = Depends(get_usuario_atual),
+    service: ProventoService = Depends(get_provento_service),
+) -> list[ProventoResponse]:
+    try:
+        proventos = service.historico(ativo_id)
+    except AtivoNaoEncontradoError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ativo nao encontrado") from exc
+    except FonteDadosIndisponivelError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Fonte de dados de proventos indisponivel"
+        ) from exc
+
+    return [ProventoResponse.de(provento) for provento in reversed(proventos)]

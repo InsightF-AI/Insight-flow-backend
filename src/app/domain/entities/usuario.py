@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
@@ -33,3 +34,6 @@ class Usuario:
 
     def alterar_senha(self, nova_senha: str) -> None:
         self.senha_hash = _pwd_context.hash(nova_senha)
+
+    def impressao_senha(self) -> str:
+        return hashlib.sha256(self.senha_hash.encode()).hexdigest()[:32]

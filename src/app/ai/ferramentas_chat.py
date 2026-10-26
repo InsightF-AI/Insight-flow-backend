@@ -71,7 +71,7 @@ class ExecutorFerramentas:
         except Exception:
             logger.warning("Falha ao executar a ferramenta %s.", chamada.nome, exc_info=True)
             conteudo = {"erro": "dado indisponivel"}
-        return ResultadoFerramenta(nome=chamada.nome, conteudo=conteudo)
+        return ResultadoFerramenta(nome=chamada.nome, conteudo=conteudo, id=chamada.id)
 
     def _despachar(self, usuario_id: UUID, chamada: ChamadaFerramenta) -> dict:
         if chamada.nome == "obter_posicoes":

@@ -20,9 +20,16 @@ from app.domain.entities.usuario import Usuario
 from app.integrations.bcb.client import BcbClient
 from app.integrations.binance.client import BinanceClient
 from app.integrations.brapi.client import BrapiClient
+from app.integrations.email.enviador import (
+    EnviadorBrevo,
+    EnviadorEmail,
+    EnviadorLog,
+    EnviadorSmtp,
+)
 from app.integrations.expo.fabrica import criar_expo_client
 from app.integrations.limitadores import limitador_compartilhado
 from app.integrations.web_push.fabrica import criar_web_push_client
+from app.integrations.yahoo.client import USER_AGENT, YahooFinanceClient
 from app.notifications.barramento import BarramentoNotificacoes
 from app.notifications.canais import montar_canais
 from app.notifications.redis_barramento import RedisBarramentoNotificacoes
@@ -77,9 +84,11 @@ from app.services.inscricao_web_push_service import InscricaoWebPushService
 from app.services.mercado_cache import MercadoCache
 from app.services.notificacao_service import NotificacaoService
 from app.services.portfolio_service import PortfolioService
+from app.services.provento_service import ProventoService
 from app.services.redis_mercado_cache import RedisMercadoCache
 from app.services.refresh_token_service import RefreshTokenService
 from app.services.roteador_dados_mercado_service import RoteadorDadosMercadoService
+from app.services.senha_service import SenhaService
 from app.services.sinal_service import SinalService
 from app.services.usuario_service import UsuarioService
 from app.services.watchlist_service import WatchlistService
@@ -155,6 +164,45 @@ def get_refresh_token_service(
         access_expiracao_minutos=settings.jwt_expiration_minutes,
         refresh_expiracao_dias=settings.refresh_token_expiracao_dias,
     )
+
+
+def get_senha_service(
+    usuario_repository: UsuarioRepository = Depends(get_usuario_repository),
+    refresh_token_repository: RefreshTokenRepository = Depends(get_refresh_token_repository),
+    settings: Settings = Depends(get_settings),
+) -> SenhaService:
+    return SenhaService(
+        usuario_repository,
+        refresh_token_repository,
+        jwt_secret_key=settings.jwt_secret_key,
+        expiracao_minutos=settings.recuperacao_senha_expiracao_minutos,
+        url_redefinicao=settings.recuperacao_senha_url,
+    )
+
+
+@lru_cache
+def _brevo_http_client(base_url: str) -> httpx.Client:
+    return httpx.Client(base_url=base_url, timeout=10.0)
+
+
+def get_enviador_email(settings: Settings = Depends(get_settings)) -> EnviadorEmail:
+    if settings.brevo_api_key and settings.email_remetente:
+        return EnviadorBrevo(
+            _brevo_http_client(settings.brevo_base_url),
+            settings.brevo_api_key,
+            settings.email_remetente,
+            settings.email_remetente_nome,
+        )
+    if settings.smtp_host and settings.email_remetente:
+        return EnviadorSmtp(
+            settings.smtp_host,
+            settings.smtp_porta,
+            settings.smtp_usuario,
+            settings.smtp_senha,
+            settings.email_remetente,
+            settings.smtp_starttls,
+        )
+    return EnviadorLog(incluir_corpo=not settings.em_producao())
 
 
 def get_usuario_service(
@@ -386,6 +434,39 @@ def get_portfolio_service(
         cambio_service,
         bcb_client,
         cotacao_repository,
+    )
+
+
+@lru_cache
+def _yahoo_http_client(base_url: str) -> httpx.Client:
+    return httpx.Client(base_url=base_url, timeout=10.0, headers={"User-Agent": USER_AGENT})
+
+
+def get_yahoo_client(settings: Settings = Depends(get_settings)) -> YahooFinanceClient:
+    return YahooFinanceClient(
+        _yahoo_http_client(settings.yahoo_base_url),
+        limitador=limitador_compartilhado(
+            "yahoo",
+            settings.yahoo_requisicoes_por_minuto,
+            settings.integracoes_espera_maxima_segundos,
+        ),
+        politica=settings.politica_retentativa(),
+    )
+
+
+def get_provento_service(
+    ativo_repository: AtivoRepository = Depends(get_ativo_repository),
+    operacao_repository: OperacaoRepository = Depends(get_operacao_repository),
+    yahoo_client: YahooFinanceClient = Depends(get_yahoo_client),
+    mercado_cache: MercadoCache = Depends(get_mercado_cache),
+    settings: Settings = Depends(get_settings),
+) -> ProventoService:
+    return ProventoService(
+        ativo_repository,
+        operacao_repository,
+        yahoo_client,
+        mercado_cache,
+        settings.cache_ttl_proventos_segundos,
     )
 
 

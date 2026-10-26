@@ -19,3 +19,6 @@ class RefreshTokenRepository(ABC):
 
     @abstractmethod
     def revogar_familia(self, familia_id: UUID, revogado_em: datetime) -> None: ...
+
+    @abstractmethod
+    def revogar_do_usuario(self, usuario_id: UUID, revogado_em: datetime) -> None: ...

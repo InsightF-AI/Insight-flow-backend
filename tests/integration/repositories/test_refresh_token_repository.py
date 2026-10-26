@@ -103,3 +103,18 @@ def test_revogar_se_ativo_so_revoga_uma_vez(session):
     assert primeira is True
     assert segunda is False
     assert repositorio.buscar_por_hash("7" * 64).revogado_em == _AGORA
+
+
+def test_revogar_do_usuario_revoga_todas_as_familias_so_daquele_usuario(session):
+    ana = _novo_usuario(session)
+    bruno = _novo_usuario(session)
+    repositorio = SqlAlchemyRefreshTokenRepository(session)
+    repositorio.salvar(_token(ana.id, uuid4(), "c" * 64))
+    repositorio.salvar(_token(ana.id, uuid4(), "d" * 64))
+    repositorio.salvar(_token(bruno.id, uuid4(), "e" * 64))
+
+    repositorio.revogar_do_usuario(ana.id, _AGORA)
+
+    assert repositorio.buscar_por_hash("c" * 64).esta_revogado()
+    assert repositorio.buscar_por_hash("d" * 64).esta_revogado()
+    assert not repositorio.buscar_por_hash("e" * 64).esta_revogado()
