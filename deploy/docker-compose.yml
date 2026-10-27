@@ -6,6 +6,20 @@ services:
     image: postgres:16-alpine
     container_name: insightflow-postgres
     restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - log_connections=on
+      - -c
+      - log_disconnections=on
+      - -c
+      - log_statement=ddl
+      - -c
+      - log_min_duration_statement=1000
+      - -c
+      - log_lock_waits=on
+      - -c
+      - "log_line_prefix=%m [%p] usuario=%u banco=%d app=%a cliente=%h "
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -45,6 +59,9 @@ services:
     container_name: insightflow-backend
     restart: unless-stopped
     env_file: .env
+    environment:
+      METRICAS_HABILITADAS: "true"
+      FORWARDED_ALLOW_IPS: "*"
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,6 +77,35 @@ services:
       - traefik.http.routers.backend.tls.certresolver=le
       - traefik.http.services.backend.loadbalancer.server.port=8000
 
+  alloy:
+    image: grafana/alloy:v1.10.0
+    container_name: insightflow-alloy
+    restart: unless-stopped
+    privileged: true
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    environment:
+      AMBIENTE_MONITORADO: homologacao
+      GRAFANA_CLOUD_PROMETHEUS_URL: ${GRAFANA_CLOUD_PROMETHEUS_URL:-}
+      GRAFANA_CLOUD_PROMETHEUS_USUARIO: ${GRAFANA_CLOUD_PROMETHEUS_USUARIO:-}
+      GRAFANA_CLOUD_LOKI_URL: ${GRAFANA_CLOUD_LOKI_URL:-}
+      GRAFANA_CLOUD_LOKI_USUARIO: ${GRAFANA_CLOUD_LOKI_USUARIO:-}
+      GRAFANA_CLOUD_TOKEN: ${GRAFANA_CLOUD_TOKEN:-}
+      POSTGRES_EXPORTER_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+    volumes:
+      - ./observabilidade/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro,rslave
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks: [internal]
+
 networks:
   internal:
   proxy:
@@ -68,3 +114,4 @@ networks:
 
 volumes:
   pgdata:
+  alloy-data:

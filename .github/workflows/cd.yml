@@ -133,10 +133,13 @@ jobs:
         run: |
           set -euo pipefail
           SSH=(ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes)
-          "${SSH[@]}" "$VM_USER@$VM_HOST" "mkdir -p ~/apps/insightflow/backend"
+          "${SSH[@]}" "$VM_USER@$VM_HOST" "mkdir -p ~/apps/insightflow/backend/observabilidade"
           scp -i ~/.ssh/deploy_key -o IdentitiesOnly=yes \
             deploy/docker-compose.yml \
             "$VM_USER@$VM_HOST:apps/insightflow/backend/docker-compose.yml"
+          scp -i ~/.ssh/deploy_key -o IdentitiesOnly=yes \
+            deploy/observabilidade/config.alloy \
+            "$VM_USER@$VM_HOST:apps/insightflow/backend/observabilidade/config.alloy"
           printf '%s\n' "$GHCR_TOKEN" | "${SSH[@]}" "$VM_USER@$VM_HOST" \
             "docker login ghcr.io -u ${ACTOR} --password-stdin"
           "${SSH[@]}" "$VM_USER@$VM_HOST" \
@@ -146,7 +149,12 @@ jobs:
              docker compose pull
              docker compose up -d --wait postgres redis
              docker compose run --rm --no-deps migrate
-             docker compose up -d --force-recreate --no-deps backend"
+             docker compose up -d --force-recreate --no-deps backend
+             if grep -q '^GRAFANA_CLOUD_TOKEN=.' .env; then
+               docker compose up -d --force-recreate --no-deps alloy
+             else
+               echo 'GRAFANA_CLOUD_TOKEN ausente no .env: Alloy nao sobe.'
+             fi"
 
       - name: Smoke test
         run: |
@@ -211,10 +219,13 @@ jobs:
         run: |
           set -euo pipefail
           SSH=(ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes)
-          "${SSH[@]}" "$PROD_USER@$PROD_HOST" "mkdir -p ~/apps/insightflow/backend"
+          "${SSH[@]}" "$PROD_USER@$PROD_HOST" "mkdir -p ~/apps/insightflow/backend/observabilidade"
           scp -i ~/.ssh/deploy_key -o IdentitiesOnly=yes \
             deploy/docker-compose.prod.yml \
             "$PROD_USER@$PROD_HOST:apps/insightflow/backend/docker-compose.yml"
+          scp -i ~/.ssh/deploy_key -o IdentitiesOnly=yes \
+            deploy/observabilidade/config.alloy \
+            "$PROD_USER@$PROD_HOST:apps/insightflow/backend/observabilidade/config.alloy"
           printf '%s\n' "$GHCR_TOKEN" | "${SSH[@]}" "$PROD_USER@$PROD_HOST" \
             "install -m 700 -d /root/.docker-deploy && export DOCKER_CONFIG=/root/.docker-deploy && docker login ghcr.io -u ${ACTOR} --password-stdin"
           "${SSH[@]}" "$PROD_USER@$PROD_HOST" \
@@ -225,7 +236,12 @@ jobs:
              docker compose pull
              docker compose up -d --wait postgres redis
              docker compose run --rm --no-deps migrate
-             docker compose up -d --force-recreate --no-deps backend"
+             docker compose up -d --force-recreate --no-deps backend
+             if grep -q '^GRAFANA_CLOUD_TOKEN=.' .env; then
+               docker compose up -d --force-recreate --no-deps alloy
+             else
+               echo 'GRAFANA_CLOUD_TOKEN ausente no .env: Alloy nao sobe.'
+             fi"
 
       - name: Smoke test
         run: |

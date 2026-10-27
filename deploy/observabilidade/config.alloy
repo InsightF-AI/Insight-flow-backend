@@ -1,0 +1,160 @@
+// Agente do Grafana Alloy: um por máquina (homologação e produção).
+// Coleta métricas e logs e envia para o Grafana Cloud. As credenciais vêm do .env
+// da máquina, pelo compose. Guia completo em docs/observabilidade.md.
+
+// ---------- Destinos no Grafana Cloud ----------
+
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_CLOUD_PROMETHEUS_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_CLOUD_PROMETHEUS_USUARIO")
+      password = sys.env("GRAFANA_CLOUD_TOKEN")
+    }
+  }
+
+  external_labels = {
+    ambiente = sys.env("AMBIENTE_MONITORADO"),
+  }
+}
+
+loki.write "grafana_cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_CLOUD_LOKI_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_CLOUD_LOKI_USUARIO")
+      password = sys.env("GRAFANA_CLOUD_TOKEN")
+    }
+  }
+
+  external_labels = {
+    ambiente = sys.env("AMBIENTE_MONITORADO"),
+  }
+}
+
+// ---------- Máquina: CPU, memória, disco e rede ----------
+
+prometheus.exporter.unix "maquina" {
+  procfs_path = "/host/proc"
+  sysfs_path  = "/host/sys"
+  rootfs_path = "/host/root"
+}
+
+prometheus.scrape "maquina" {
+  targets         = prometheus.exporter.unix.maquina.targets
+  job_name        = "maquina"
+  scrape_interval = "60s"
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+// ---------- Containers do Insight Flow ----------
+
+prometheus.exporter.cadvisor "containers" {
+  docker_host      = "unix:///var/run/docker.sock"
+  docker_only      = true
+  storage_duration = "5m"
+}
+
+prometheus.scrape "containers" {
+  targets         = prometheus.exporter.cadvisor.containers.targets
+  job_name        = "containers"
+  scrape_interval = "60s"
+  forward_to      = [prometheus.relabel.containers.receiver]
+}
+
+// O plano grátis tem limite de séries: fica só o necessário e só dos nossos containers.
+prometheus.relabel "containers" {
+  rule {
+    source_labels = ["name"]
+    regex         = "insightflow-.*"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__name__"]
+    regex         = "container_(cpu_usage_seconds_total|memory_working_set_bytes|spec_memory_limit_bytes|network_(receive|transmit)_bytes_total|fs_usage_bytes|last_seen|start_time_seconds)"
+    action        = "keep"
+  }
+
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+// ---------- PostgreSQL e Redis ----------
+
+prometheus.exporter.postgres "banco" {
+  data_source_names = [sys.env("POSTGRES_EXPORTER_DSN")]
+}
+
+prometheus.scrape "banco" {
+  targets         = prometheus.exporter.postgres.banco.targets
+  job_name        = "postgres"
+  scrape_interval = "60s"
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.exporter.redis "cache" {
+  redis_addr = "redis:6379"
+}
+
+prometheus.scrape "cache" {
+  targets         = prometheus.exporter.redis.cache.targets
+  job_name        = "redis"
+  scrape_interval = "60s"
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+// ---------- API: requisições, latência e jobs (porta interna 9100) ----------
+
+prometheus.scrape "api" {
+  targets         = [{"__address__" = "backend:9100"}]
+  job_name        = "insightflow-api"
+  scrape_interval = "30s"
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+// ---------- Logs dos containers ----------
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "logs" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(insightflow-.*)"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.logs.output
+  forward_to = [loki.process.logs.receiver]
+}
+
+// A API loga em JSON: o nível vira rótulo para filtrar rápido; o resto se lê com `| json`.
+loki.process "logs" {
+  stage.match {
+    selector = "{container=\"insightflow-backend\"}"
+
+    stage.json {
+      expressions = { nivel = "nivel" }
+    }
+
+    stage.labels {
+      values = { nivel = "" }
+    }
+  }
+
+  forward_to = [loki.write.grafana_cloud.receiver]
+}
