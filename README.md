@@ -55,6 +55,10 @@ pytest -q            # tudo (precisa de Postgres e Redis)
 pytest -q tests/unit  # só o que roda sem infraestrutura
 ```
 
+## Observabilidade e auditoria
+
+Métricas, logs, disponibilidade e alertas no Grafana Cloud, coletados por um agente Grafana Alloy em cada ambiente; trilha de auditoria no próprio PostgreSQL. Configuração e consultas em [docs/observabilidade.md](docs/observabilidade.md).
+
 ## Stack
 
 Python 3.11+, FastAPI, SQLAlchemy, PostgreSQL, Redis, Pydantic, APScheduler, pandas-ta.
