@@ -7,6 +7,7 @@ from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.logs import em_correlacao, id_de_correlacao_valido
+from app.core.metricas import ROTA_NAO_MAPEADA, registrar_requisicao
 
 logger = logging.getLogger(__name__)
 
@@ -79,10 +80,16 @@ class CorrelacaoMiddleware:
         _logar_requisicao(scope, status, inicio)
 
 
+def _rota(scope: Scope) -> str:
+    return getattr(scope.get("route"), "path", None) or ROTA_NAO_MAPEADA
+
+
 def _logar_requisicao(scope: Scope, status: int, inicio: float, erro: bool = False) -> None:
     caminho = scope.get("path", "")
     if caminho in _CAMINHOS_SILENCIOSOS:
         return
+    duracao = time.perf_counter() - inicio
+    registrar_requisicao(scope.get("method", ""), _rota(scope), status, duracao)
     estado = scope.get("state") or {}
     logger.log(
         logging.ERROR if status >= 500 else logging.INFO,
@@ -95,7 +102,9 @@ def _logar_requisicao(scope: Scope, status: int, inicio: float, erro: bool = Fal
             "metodo": scope.get("method"),
             "caminho": caminho,
             "status": status,
-            "duracao_ms": round((time.perf_counter() - inicio) * 1000, 1),
+            "rota": _rota(scope),
+            "duracao_ms": round(duracao * 1000, 1),
             "usuario_id": estado.get(_CHAVE_USUARIO),
+            "ip": (scope.get("client") or (None,))[0],
         },
     )

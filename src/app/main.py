@@ -17,6 +17,7 @@ from app.api.v1.controllers.watchlist import router as watchlist_router
 from app.api.v1.controllers.web_push import router as web_push_router
 from app.core.config import get_settings
 from app.core.logs import configurar_logs
+from app.core.metricas import iniciar_servidor_metricas
 from app.scheduler.jobs import registrar_jobs
 
 
@@ -26,6 +27,8 @@ async def lifespan(app: FastAPI):
     problemas = settings.problemas_de_configuracao()
     if problemas:
         raise RuntimeError("Configuracao invalida: " + "; ".join(problemas))
+    if settings.metricas_habilitadas:
+        iniciar_servidor_metricas(settings.metricas_porta)
     scheduler = BackgroundScheduler()
     if settings.scheduler_habilitado:
         registrar_jobs(scheduler, settings)

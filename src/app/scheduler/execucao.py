@@ -3,6 +3,7 @@ import time
 from collections.abc import Callable
 
 from app.core.logs import em_correlacao
+from app.core.metricas import registrar_job
 
 logger = logging.getLogger(__name__)
 
@@ -14,12 +15,14 @@ def executar_job(nome: str, funcao: Callable[[], None]) -> None:
         try:
             funcao()
         except Exception:
+            registrar_job(nome, sucesso=False, duracao_segundos=time.perf_counter() - inicio)
             logger.exception(
                 "Job %s falhou.",
                 nome,
                 extra={"evento": "job_falhou", "job": nome, "duracao_ms": _decorrido(inicio)},
             )
             return
+        registrar_job(nome, sucesso=True, duracao_segundos=time.perf_counter() - inicio)
         logger.info(
             "Job %s concluido.",
             nome,

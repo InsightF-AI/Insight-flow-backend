@@ -25,6 +25,9 @@ alembic
 # Cache
 redis
 
+# Observabilidade (métricas no formato do Prometheus)
+prometheus-client
+
 # Validação e schemas
 pydantic
 pydantic-settings
