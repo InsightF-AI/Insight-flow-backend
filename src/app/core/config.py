@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     cors_origens: list[str] = ["http://localhost:5173"]
     log_nivel: str = "INFO"
     log_formato: str = "json"
+    metricas_habilitadas: bool = False
+    metricas_porta: int = 9100
 
     brapi_base_url: str = "https://brapi.dev"
     brapi_api_key: str = ""

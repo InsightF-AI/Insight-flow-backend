@@ -86,6 +86,16 @@ def test_loga_a_requisicao_com_metodo_caminho_status_e_duracao(caplog):
     assert registro.usuario_id is None
 
 
+def test_loga_a_rota_e_o_ip_do_cliente(caplog):
+    caplog.set_level(logging.INFO)
+
+    TestClient(_app()).get("/falha")
+
+    registro = _registros_de_requisicao(caplog)[-1]
+    assert registro.rota == "/falha"
+    assert registro.ip == "testclient"
+
+
 def test_loga_o_usuario_autenticado(caplog):
     caplog.set_level(logging.INFO)
 
