@@ -45,6 +45,11 @@ class AtivoService:
         self._dados_mercado_service = dados_mercado_service
         self._cotacao_repository = cotacao_repository
 
+    def listar_catalogo(self, tipo: TipoAtivo | None = None) -> list[Ativo]:
+        return [
+            ativo for ativo in self._ativo_repository.listar(tipo) if ativo.tipo != TipoAtivo.INDICE
+        ]
+
     def cotacao_atual(self, ativo_id: UUID) -> CotacaoAtual:
         ativo = self._buscar_ativo(ativo_id)
         return self._dados_mercado_service.buscar_cotacao_atual(ativo.ticker)

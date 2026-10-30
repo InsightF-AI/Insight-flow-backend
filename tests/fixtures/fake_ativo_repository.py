@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from app.domain.entities.ativo import Ativo
+from app.domain.enums.tipo_ativo import TipoAtivo
 from app.repositories.interfaces.ativo_repository import AtivoRepository
 
 
@@ -21,3 +22,9 @@ class FakeAtivoRepository(AtivoRepository):
             if ativo.ticker == ticker:
                 return ativo
         return None
+
+    def listar(self, tipo: TipoAtivo | None = None) -> list[Ativo]:
+        return sorted(
+            (ativo for ativo in self._ativos.values() if tipo is None or ativo.tipo is tipo),
+            key=lambda ativo: ativo.ticker,
+        )

@@ -37,6 +37,12 @@ class SqlAlchemyAtivoRepository(AtivoRepository):
         modelo = self._session.scalar(select(AtivoModel).where(AtivoModel.ticker == ticker))
         return self._para_entidade(modelo) if modelo is not None else None
 
+    def listar(self, tipo: TipoAtivo | None = None) -> list[Ativo]:
+        consulta = select(AtivoModel).order_by(AtivoModel.ticker)
+        if tipo is not None:
+            consulta = consulta.where(AtivoModel.tipo == tipo)
+        return [self._para_entidade(modelo) for modelo in self._session.scalars(consulta)]
+
     @staticmethod
     def _para_entidade(modelo: AtivoModel) -> Ativo:
         return Ativo(

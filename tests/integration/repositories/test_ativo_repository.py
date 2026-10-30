@@ -63,3 +63,21 @@ def test_salvar_dois_ativos_com_mesmo_ticker_viola_constraint_unica(session):
 
     with pytest.raises(IntegrityError):
         repo.salvar(_novo_ativo(ticker="ITUB4"))
+
+
+def test_listar_retorna_ativos_ordenados_por_ticker(session):
+    repo = SqlAlchemyAtivoRepository(session)
+    repo.salvar(_novo_ativo(ticker="VALE3"))
+    repo.salvar(_novo_ativo(ticker="ABEV3"))
+
+    assert [ativo.ticker for ativo in repo.listar()] == ["ABEV3", "VALE3"]
+
+
+def test_listar_filtra_por_tipo(session):
+    repo = SqlAlchemyAtivoRepository(session)
+    repo.salvar(_novo_ativo(ticker="VALE3"))
+    cripto = _novo_ativo(ticker="BTC")
+    cripto.tipo = TipoAtivo.CRIPTO
+    repo.salvar(cripto)
+
+    assert [ativo.ticker for ativo in repo.listar(TipoAtivo.CRIPTO)] == ["BTC"]

@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from uuid import UUID
 
 from app.domain.entities.ativo import Ativo
+from app.domain.enums.tipo_ativo import TipoAtivo
 
 
 class AtivoRepository(ABC):
@@ -15,3 +16,6 @@ class AtivoRepository(ABC):
 
     @abstractmethod
     def buscar_por_ticker(self, ticker: str) -> Ativo | None: ...
+
+    @abstractmethod
+    def listar(self, tipo: TipoAtivo | None = None) -> list[Ativo]: ...

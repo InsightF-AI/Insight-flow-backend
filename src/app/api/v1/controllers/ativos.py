@@ -10,13 +10,14 @@ from app.api.deps import (
     get_sinal_service,
     get_usuario_atual,
 )
-from app.api.v1.schemas.ativo import AtivoEncontradoResponse
+from app.api.v1.schemas.ativo import AtivoCatalogoResponse, AtivoEncontradoResponse
 from app.api.v1.schemas.cotacao import CotacaoAtualResponse, PontoHistoricoResponse
 from app.api.v1.schemas.indicador import IndicadorTecnicoResponse
 from app.api.v1.schemas.provento import ProventoResponse
 from app.api.v1.schemas.sinal import ResultadoBacktestResponse, SinalResponse
 from app.domain.entities.usuario import Usuario
 from app.domain.enums.periodo_historico import PeriodoHistorico
+from app.domain.enums.tipo_ativo import TipoAtivo
 from app.domain.regras_sinal_padrao import buscar_regra_por_id
 from app.integrations.erros import FonteDadosIndisponivelError, TickerNaoEncontradoError
 from app.services.ativo_service import AtivoService
@@ -43,6 +44,15 @@ def buscar(
         ) from exc
 
     return [AtivoEncontradoResponse.de(ativo) for ativo in encontrados]
+
+
+@router.get("/catalogo", response_model=list[AtivoCatalogoResponse])
+def catalogo(
+    tipo: TipoAtivo | None = None,
+    usuario: Usuario = Depends(get_usuario_atual),
+    service: AtivoService = Depends(get_ativo_service),
+) -> list[AtivoCatalogoResponse]:
+    return [AtivoCatalogoResponse.de(ativo) for ativo in service.listar_catalogo(tipo)]
 
 
 @router.get("/{ativo_id}/cotacao", response_model=CotacaoAtualResponse)
