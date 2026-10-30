@@ -549,6 +549,7 @@
     <div class="toc-group">
       <div class="toc-group-title">Ativos</div>
       <a href="#ep-buscar"><span class="m get">GET</span>/ativos/buscar</a>
+      <a href="#ep-catalogo"><span class="m get">GET</span>/ativos/catalogo</a>
       <a href="#ep-cotacao"><span class="m get">GET</span>.../cotacao</a>
       <a href="#ep-historico"><span class="m get">GET</span>.../historico</a>
       <a href="#ep-indicadores"><span class="m get">GET</span>.../indicadores</a>
@@ -1005,7 +1006,7 @@
           <p class="endpoint-summary">
             Busca ativos por ticker ou nome. Retorna os resultados da brapi seguidos das criptos cujo código contém
             o termo. Lista vazia se nada bater. Note que a busca <b>não</b> devolve <code>id</code>: para obter o id
-            interno, adicione à watchlist (ou crie um alerta) pelo ticker.
+            interno, use <code>GET /ativos/catalogo</code> ou adicione à watchlist (ou crie um alerta) pelo ticker.
           </p>
           <table class="params">
             <tr><th>Param</th><th>Tipo</th><th>Descrição</th></tr>
@@ -1031,6 +1032,43 @@
           <div class="subhead">Erros</div>
           <table class="errors">
             <tr><td class="status s5">503</td><td>"Fonte de dados de mercado indisponivel" (se só a Binance cair, a busca segue sem cripto)</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-catalogo">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/v1/ativos/catalogo<span class="param">?tipo=</span></span>
+          <span class="auth-flag locked">🔒 autenticado</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-summary">
+            Lista os ativos já cadastrados no servidor, em ordem de ticker, <b>com o <code>id</code> interno</b>.
+            Já vem com um catálogo inicial (ações, FIIs e ETFs mais negociados da B3 e as principais criptos em BRL)
+            e cresce quando alguém adiciona outro ticker à watchlist. Índices (<code>^BVSP</code>) ficam de fora.
+            Use para preencher a escolha de ativo de um usuário novo: com o <code>id</code>, dá para registrar
+            operação direto em <code>POST /operacoes</code> e pegar o preço em <code>GET /ativos/{id}/cotacao</code>,
+            sem passar pela watchlist. Não consulta fonte externa e não traz preço.
+          </p>
+          <table class="params">
+            <tr><th>Param</th><th>Tipo</th><th>Descrição</th></tr>
+            <tr><td class="pname">tipo</td><td class="ptype">enum (query, opcional)</td><td><code>ACAO</code>, <code>FII</code>, <code>ETF</code>, <code>BDR</code> ou <code>CRIPTO</code></td></tr>
+          </table>
+          <div class="subhead">200 OK</div>
+          <pre><code><span class="tok-punc">[</span>
+  <span class="tok-punc">{</span>
+    <span class="tok-key">"id"</span><span class="tok-punc">:</span> <span class="tok-str">"3f1c2a9e-8b7d-4c6e-9a1b-2d3e4f5a6b7c"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"ticker"</span><span class="tok-punc">:</span> <span class="tok-str">"BTC"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"nome"</span><span class="tok-punc">:</span> <span class="tok-str">"Bitcoin"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"tipo"</span><span class="tok-punc">:</span> <span class="tok-str">"CRIPTO"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"setor"</span><span class="tok-punc">:</span> <span class="tok-bool">null</span><span class="tok-punc">,</span>
+    <span class="tok-key">"moeda"</span><span class="tok-punc">:</span> <span class="tok-str">"BRL"</span>
+  <span class="tok-punc">}</span>
+<span class="tok-punc">]</span></code></pre>
+          <div class="subhead">Erros</div>
+          <table class="errors">
+            <tr><td class="status s4">422</td><td><code>tipo</code> fora do enum</td></tr>
           </table>
         </div>
       </article>
